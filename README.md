@@ -1,3 +1,3 @@
-# My NFTs
+# MemeCoinData
 
 [https://bokkypoobah.github.io/MemeCoinData/](https://bokkypoobah.github.io/MemeCoinData/)
