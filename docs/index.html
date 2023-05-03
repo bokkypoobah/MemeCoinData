@@ -152,7 +152,7 @@
               <div class="mt-0 flex-grow-1">
               </div>
               <div v-if="!sync.section" class="mt-0 pr-1">
-                <b-button size="sm" @click="syncAccounts()" variant="primary" v-b-popover.hover.top="'Select NFT collections to for accounts'">Sync</b-button>
+                <b-button size="sm" @click="syncCoins()" variant="primary" v-b-popover.hover.top="'Select NFT collections to for accounts'">Sync</b-button>
               </div>
               <div class="mt-1" style="width: 200px;">
                 <b-progress v-if="sync.section != null" height="1.5rem" :max="sync.total" show-progress :animated="sync.section != null" :variant="sync.section != null ? 'success' : 'secondary'" v-b-popover.hover.top="'Click the button on the right to stop. This process can be continued later'">
@@ -1090,13 +1090,17 @@
             }
             this.saveSettings();
           },
-          async syncAccounts() {
-            console.log("syncAccounts");
+          async syncCoin(coinInfo) {
+            console.log("syncCoin: " + coinInfo.address + " " + coinInfo.symbol + " " + coinInfo.name);
+          },
+          async syncCoins() {
+            console.log("syncCoins");
             const db0 = new Dexie(this.db.name);
             db0.version(this.db.version).stores(this.db.schemaDefinition);
             for (const [coinAddress, coinInfo] of Object.entries(this.settings.coins)) {
-              console.log("Processing: " + coinAddress + " " + JSON.stringify(coinInfo));
               if (coinInfo.sync && !this.sync.halt) {
+                console.log("Processing: " + coinAddress + " " + coinInfo.symbol + " " + coinInfo.name);
+                await this.syncCoin({ address: coinAddress, ...coinInfo })
               //   const accountInfo = this.settings.accounts[address] || {};
               //   this.sync.completed = 0;
               //   this.sync.total = null;
@@ -1112,7 +1116,7 @@
               //       .then(handleErrors)
               //       .then(response => response.json())
               //       .catch(function(error) {
-              //          console.log("ERROR - syncAccounts: " + error);
+              //          console.log("ERROR - syncCoins: " + error);
               //          // state.sync.error = true;
               //          return [];
               //       });
