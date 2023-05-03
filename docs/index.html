@@ -1220,71 +1220,41 @@
             const db0 = new Dexie(this.db.name);
             db0.version(this.db.version).stores(this.db.schemaDefinition);
             const transfers = {};
-            // const tokens = [];
+            let count = 0;
             for (const [coinAddress, coinInfo] of Object.entries(this.settings.coins)) {
               if (coinInfo.include) {
                 console.log("Loading: " + coinAddress + " " + coinInfo.symbol + " " + coinInfo.name);
                 const transfersDataObject = await db0.cache.where("objectName").equals(coinAddress).toArray();
                 if (transfersDataObject.length == 1) {
-                  // console.log("transfersDataObject: " + JSON.stringify(transfersDataObject, null, 2));
                   for (const [blockNumber, txIndexes] of Object.entries(transfersDataObject[0].object)) {
-                    // console.log(blockNumber + " => " + JSON.stringify(txIndexes, null, 2));
                     if (!(blockNumber in transfers)) {
                       transfers[blockNumber] = {};
                     }
                     for (const [txIndex, txHashes] of Object.entries(txIndexes)) {
-                      // console.log(txIndex + " => " + JSON.stringify(txHashes, null, 2));
+                      if (!(txIndex in transfers[blockNumber])) {
+                        transfers[blockNumber][txIndex] = {};
+                      }
                       for (const [txHash, logIndexes] of Object.entries(txHashes)) {
-                        // console.log(txHash + " => " + JSON.stringify(logIndexes));
+                        if (!(txHash in transfers[blockNumber][txIndex])) {
+                          transfers[blockNumber][txIndex][txHash] = {};
+                        }
                         for (const [logIndex, txData] of Object.entries(logIndexes)) {
-                          console.log(txHash + " => " + JSON.stringify(txData));
+                          console.log(txHash + " => " + JSON.stringify({ address: coinAddress, ...txData }));
+                          if (!(logIndex in transfers[blockNumber][txIndex][txHash])) {
+                            transfers[blockNumber][txIndex][txHash][logIndex] = { address: coinAddress, ...txData };
+                            count++;
+                          }
                         }
                       }
                     }
-
-                    // 17183225 => {
-                    //   "33": {
-                    //     "0xc1427e9eed43037d93b0c81f1806094a7ce80a1992aef03ac18124e040ce3b8b": {
-                    //       "343": {
-                    //         "from": "0x89D83496af9187699e1312492813015d68d2d074",
-                    //         "to": "0x7baecE5d47f1BC5E1953FBE0E9931D54DAB6D810",
-                    //         "tokens": "25000000000000000000000000"
-                    //       }
-                    //     }
-                    //   },
-
-              //       const contract = ethers.utils.getAddress(token.contract);
-              //       if (!(contract in collections)) {
-              //         collections[contract] = {
-              //           name: token.collection.name,
-              //           imageUrl: token.collection.imageUrl,
-              //           floorAskPrice: token.collection.floorAskPrice,
-              //           royaltiesBps: token.collection.royaltiesBps,
-              //           // royalties: token.collection.royalties,
-              //         };
-              //       }
-              //       tokens.push({
-              //         owner: address,
-              //         contract,
-              //         tokenId: token.tokenId,
-              //         kind: token.kind,
-              //         name: token.name,
-              //         image: token.image,
-              //         media: token.media,
-              //         rarityScore: token.rarityScore,
-              //         rarityRank: token.rarityRank,
-              //         lastSale: token.lastSale,
-              //         topBid: token.topBid,
-              //       });
                   }
                 }
               }
             }
             db0.close();
-            console.log(JSON.stringify(transfers, null, 2));
-            // console.log(JSON.stringify(tokens, null, 2));
+            // console.log(JSON.stringify(transfers, null, 2));
+            console.log("Loaded " + count + " events");
             this.transfers = transfers;
-            // this.tokens = tokens;
           },
           async requestReservoirAPITokenMetadataRefresh(token) {
             console.log("requestReservoirAPITokenMetadataRefresh - token: " + JSON.stringify(token));
