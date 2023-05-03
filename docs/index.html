@@ -302,7 +302,7 @@
               </div>
             </div>
 
-            <b-table small fixed striped responsive hover :fields="coinsFields" :items="pagedFilteredSortedCoins" show-empty empty-html="Click [+] above to add new collections" head-variant="light" class="mx-0 my-1">
+            <b-table small fixed striped responsive hover :fields="coinsFields" :items="pagedFilteredSortedCoins" show-empty empty-html="Click [+] above to your list of ERC-20 token contracts" head-variant="light" class="mx-0 my-1">
               <template #head(address)="data">
                 ERC-20 Address <b-button v-b-modal.new-coin-modal-prevent-closing variant="link" v-b-popover.hover.top="'Add new account'"><b-icon-plus-square shift-v="+1" font-scale="0.8"></b-icon-plus-square></b-button>
                 <b-modal id="new-coin-modal-prevent-closing" ref="modal" title="New ERC-20 Address" @show="newCoinAddressResetModal" @hidden="newCoinAddressResetModal" @ok="newCoinAddressHandleOk">
@@ -355,9 +355,11 @@
 
           <b-card v-if="coinbase && settings.tabIndex == 2" class="m-0 p-0 border-0" body-class="m-1 p-0" header-class="m-0 p-2">
             <div class="d-flex flex-wrap m-0 p-0">
+              <!--
               <div class="mt-0 pr-1">
                 <b-form-input type="text" size="sm" v-model.trim="settings.accountsTable.filter" @change="saveSettings" debounce="600" v-b-popover.hover.top="'Account address/name filter'" placeholder="🔍 add/name regex" style="min-width: 8.0rem;"></b-form-input>
               </div>
+              -->
               <div class="mt-0 flex-grow-1">
               </div>
               <!--
@@ -367,6 +369,7 @@
               <div class="mt-0 flex-grow-1">
               </div>
               -->
+              <!--
               <div class="mt-0 pr-1">
                 <b-dropdown size="sm" variant="link" v-b-popover.hover.top="'Export/Import accounts'">
                   <template #button-content>
@@ -376,6 +379,7 @@
                   <b-dropdown-item @click="showModalAccountsImport();">Import</b-dropdown-item>
                 </b-dropdown>
               </div>
+              -->
               <div class="mt-0 flex-grow-1">
               </div>
               <div class="mt-0 pl-1">
@@ -392,7 +396,7 @@
               </div>
             </div>
 
-            <b-table small fixed striped responsive hover :fields="accountsFields" :items="pagedFilteredSortedAccounts" show-empty empty-html="Click [+] above to add new collections" head-variant="light" class="mx-0 my-1">
+            <b-table small fixed striped responsive hover :fields="accountsFields" :items="pagedFilteredSortedAccounts" show-empty empty-html="Click [+] above to your account" head-variant="light" class="mx-0 my-1">
               <template #head(address)="data">
                 Account <b-button v-b-modal.new-account-modal-prevent-closing variant="link" v-b-popover.hover.top="'Add new account'"><b-icon-plus-square shift-v="+1" font-scale="0.8"></b-icon-plus-square></b-button>
                 <b-modal id="new-account-modal-prevent-closing" ref="modal" title="New Account" @show="newAccountResetModal" @hidden="newAccountResetModal" @ok="newAccountHandleOk">
@@ -403,6 +407,7 @@
                   </form>
                 </b-modal>
               </template>
+              <!--
               <template #head(sync)="data">
                 Sync
                 <b-dropdown size="sm" variant="link" v-b-popover.hover="'Toggle selection'">
@@ -413,6 +418,8 @@
                   <b-dropdown-item href="#" @click="toggleSyncAccounts(filteredSortedAccounts)">Toggle sync for all accounts on all pages</b-dropdown-item>
                 </b-dropdown>
               </template>
+              -->
+              <!--
               <template #head(include)="data">
                 Include
                 <b-dropdown size="sm" variant="link" v-b-popover.hover="'Toggle selection'">
@@ -423,18 +430,21 @@
                   <b-dropdown-item href="#" @click="toggleIncludeAccounts(filteredSortedAccounts)">Toggle include for all accounts on all pages</b-dropdown-item>
                 </b-dropdown>
               </template>
+              -->
               <template #cell(group)="data">
                 <b-form-input type="text" size="sm" v-model.trim="data.item.group" @change="setAccountField(data.item.address, 'group', $event)" placeholder="group"></b-form-input>
               </template>
               <template #cell(name)="data">
                 <b-form-input type="text" size="sm" v-model.trim="data.item.name" @change="setAccountField(data.item.address, 'name', $event)" placeholder="name"></b-form-input>
               </template>
+              <!--
               <template #cell(sync)="data">
                 <b-form-checkbox size="sm" :checked="data.item.sync ? 1 : 0" value="1" @change="toggleAccountField(data.item.address, 'sync')" v-b-popover.hover="'Include in sync process?'"></b-form-checkbox>
               </template>
               <template #cell(include)="data">
                 <b-form-checkbox size="sm" :checked="data.item.include ? 1 : 0" value="1" @change="toggleAccountField(data.item.address, 'include')" v-b-popover.hover="'Include in NFTs view?'"></b-form-checkbox>
               </template>
+              -->
               <template #cell(delete)="data">
                 <b-button size="sm" @click="deleteAccount(data.item.address)" variant="link" v-b-popover.hover="'Delete account'"><b-icon-trash style="color: #ff0000;" shift-v="+1" font-scale="1.0"></b-icon-trash></b-button>
               </template>
@@ -473,7 +483,7 @@
               filter: null,
               currentPage: 1,
               pageSize: 10,
-              sortOption: 'lastsaledsc',
+              sortOption: 'groupnameasc',
             },
             tokensTable: {
               tokenFilter: null,
@@ -482,7 +492,7 @@
               pageSize: 10,
               sortOption: 'lastsaledsc',
             },
-            version: 0,
+            version: 1,
           },
           newCoinAddress: null,
           newAddress: null,
@@ -538,10 +548,7 @@
           accountsFields: [
             { key: 'address', label: '#', sortable: false, thStyle: 'width: 30%;', tdClass: 'text-truncate' },
             { key: 'group', label: 'Group', sortable: false, thStyle: 'width: 20%;', tdClass: 'text-truncate' },
-            { key: 'name', label: 'Name', sortable: false, thStyle: 'width: 20%;', tdClass: 'text-truncate' },
-            // { key: 'ensName', label: 'ENS Name', sortable: false, thStyle: 'width: 15%;', tdClass: 'text-truncate' },
-            { key: 'sync', label: 'Sync', sortable: false, thStyle: 'width: 10%;', tdClass: 'text-truncate' },
-            { key: 'include', label: 'Include', sortable: false, thStyle: 'width: 10%;', tdClass: 'text-truncate' },
+            { key: 'name', label: 'Name', sortable: false, thStyle: 'width: 40%;', tdClass: 'text-truncate' },
             { key: 'delete', label: 'Delete', sortable: false, thStyle: 'width: 10%;', tdClass: 'text-truncate' },
           ],
           tokensFields: [
@@ -573,7 +580,7 @@
             // { key: 'include', label: 'Include', sortable: true, thStyle: 'width: 10%;', tdClass: 'text-truncate' },
           ],
           db: {
-            name: "mynfts089",
+            name: "memecoindata089",
             version: 1,
             schemaDefinition: {
               cache: '&objectName',
@@ -719,10 +726,7 @@
                 results.push({
                   address,
                   name: item.name,
-                  ensName: item.ensName,
                   group: item.group,
-                  sync: item.sync,
-                  include: item.include,
                 });
               }
             }
@@ -980,17 +984,14 @@
               console.log("Adding: " + this.newAddress);
               Vue.set(this.settings.accounts, this.newAddress, {
                 name: null,
-                ensName: null,
                 group: null,
-                sync: true,
-                include: true,
               });
             } else {
               console.log("Discarding duplicate: " + this.newAddress);
             }
             // Hide the modal manually
             this.$nextTick(() => {
-              this.$bvModal.hide('new-address-modal-prevent-closing');
+              this.$bvModal.hide('new-account-modal-prevent-closing');
             })
             this.saveSettings();
           },
@@ -1093,47 +1094,47 @@
             console.log("syncAccounts");
             const db0 = new Dexie(this.db.name);
             db0.version(this.db.version).stores(this.db.schemaDefinition);
-            for (const [address, accountItem] of Object.entries(this.settings.accounts)) {
-              console.log("Processing: " + address + " " + JSON.stringify(accountItem));
-              if (accountItem.sync && !this.sync.halt) {
-                const accountInfo = this.settings.accounts[address] || {};
-                this.sync.completed = 0;
-                this.sync.total = null;
-                this.sync.section = accountInfo.name || address.substring(0, 8);
-                const tokens = [];
-                let continuation = null;
-                const LIMIT = 200; // 200 max
-                do {
-                  let url = "https://api.reservoir.tools/users/" + address + "/tokens/v7?limit=" + LIMIT + "&includeTopBid=true&includeAttributes=true&includeLastSale=true&includeRawData=true" +
-                    (continuation != null ? "&continuation=" + continuation : '');
-                  console.log("url: " + url);
-                  const data = await fetch(url)
-                    .then(handleErrors)
-                    .then(response => response.json())
-                    .catch(function(error) {
-                       console.log("ERROR - syncAccounts: " + error);
-                       // state.sync.error = true;
-                       return [];
-                    });
-                  continuation = data.continuation;
-                  if (data && data.tokens) {
-                    for (const tokenData of data.tokens) {
-                      if (tokenData && tokenData.token) {
-                        tokens.push(tokenData.token);
-                      }
-                    }
-                    this.sync.completed = tokens.length;
-                  }
-                  await delay(1000); // TODO: Adjust to avoid errors 429 Too Many Requests.
-                } while (continuation != null && !this.sync.halt /*&& !state.sync.error */);
-                if (!this.sync.halt) {
-                  console.log("tokens: " + JSON.stringify(tokens, null, 2));
-                  await db0.cache.put({ objectName: address, object: tokens }).then (function() {
-                  }).catch(function(error) {
-                    console.log("error: " + error);
-                  });
-                  await delay(1500); // TODO: Adjust to avoid error 429 Too Many Requests.
-                }
+            for (const [coinAddress, coinInfo] of Object.entries(this.settings.coins)) {
+              console.log("Processing: " + coinAddress + " " + JSON.stringify(coinInfo));
+              if (coinInfo.sync && !this.sync.halt) {
+              //   const accountInfo = this.settings.accounts[address] || {};
+              //   this.sync.completed = 0;
+              //   this.sync.total = null;
+              //   this.sync.section = accountInfo.name || address.substring(0, 8);
+              //   const tokens = [];
+              //   let continuation = null;
+              //   const LIMIT = 200; // 200 max
+              //   do {
+              //     let url = "https://api.reservoir.tools/users/" + address + "/tokens/v7?limit=" + LIMIT + "&includeTopBid=true&includeAttributes=true&includeLastSale=true&includeRawData=true" +
+              //       (continuation != null ? "&continuation=" + continuation : '');
+              //     console.log("url: " + url);
+              //     const data = await fetch(url)
+              //       .then(handleErrors)
+              //       .then(response => response.json())
+              //       .catch(function(error) {
+              //          console.log("ERROR - syncAccounts: " + error);
+              //          // state.sync.error = true;
+              //          return [];
+              //       });
+              //     continuation = data.continuation;
+              //     if (data && data.tokens) {
+              //       for (const tokenData of data.tokens) {
+              //         if (tokenData && tokenData.token) {
+              //           tokens.push(tokenData.token);
+              //         }
+              //       }
+              //       this.sync.completed = tokens.length;
+              //     }
+              //     await delay(1000); // TODO: Adjust to avoid errors 429 Too Many Requests.
+              //   } while (continuation != null && !this.sync.halt /*&& !state.sync.error */);
+              //   if (!this.sync.halt) {
+              //     console.log("tokens: " + JSON.stringify(tokens, null, 2));
+              //     await db0.cache.put({ objectName: address, object: tokens }).then (function() {
+              //     }).catch(function(error) {
+              //       console.log("error: " + error);
+              //     });
+              //     await delay(1500); // TODO: Adjust to avoid error 429 Too Many Requests.
+              //   }
               }
             }
             this.sync.section = null;
