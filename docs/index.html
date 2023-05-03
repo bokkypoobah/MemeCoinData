@@ -307,7 +307,7 @@
                 ERC-20 Address <b-button v-b-modal.new-coin-modal-prevent-closing variant="link" v-b-popover.hover.top="'Add new account'"><b-icon-plus-square shift-v="+1" font-scale="0.8"></b-icon-plus-square></b-button>
                 <b-modal id="new-coin-modal-prevent-closing" ref="modal" title="New ERC-20 Address" @show="newCoinAddressResetModal" @hidden="newCoinAddressResetModal" @ok="newCoinAddressHandleOk">
                   <form ref="coinForm" @submit.stop.prevent="newCoinAddressHandleSubmit">
-                    <b-form-group label="Address" label-for="name-input" :state="newCoinAddressState" invalid-feedback="Please enter a valid Ethereum address">
+                    <b-form-group label="Address" label-for="name-input" :state="newCoinAddressState" description="Pre-filled with TURBO for initial testing" invalid-feedback="Please enter a valid Ethereum address">
                       <b-form-input id="name-input" v-model="newCoinAddress" :state="newCoinAddressState" required placeholder="0x1234..."></b-form-input>
                     </b-form-group>
                   </form>
@@ -492,7 +492,7 @@
               pageSize: 10,
               sortOption: 'lastsaledsc',
             },
-            version: 1,
+            version: 2,
           },
           newCoinAddress: null,
           newAddress: null,
@@ -509,6 +509,7 @@
             collection: null,
           },
 
+          transfers: {},
           collections: {},
           tokens: [],
           ensMap: {},
@@ -910,7 +911,8 @@
             }
           },
           newCoinAddressResetModal() {
-            this.newCoinAddress = null;
+            // TODO this.newCoinAddress = null;
+            this.newCoinAddress = "0xA35923162C49cF95e6BF26623385eb431ad920D3";
           },
           newCoinAddressHandleOk(bvModalEvent) {
             // Prevent modal from closing
@@ -1092,7 +1094,7 @@
             }
             this.saveSettings();
           },
-          async syncCoin(coinInfo) {
+          async syncCoin(db, coinInfo) {
             console.log("syncCoin: " + coinInfo.address + " " + coinInfo.symbol + " " + coinInfo.name);
             // const startBlock = accountData && accountData.updated && accountData.updated.blockNumber && (parseInt(accountData.updated.blockNumber) - parameter.OVERLAPBLOCKS) || 0;
             const provider = new ethers.providers.Web3Provider(window.ethereum);
@@ -1107,27 +1109,58 @@
               console.log("batch: " + startBatch + " - " + endBatch);
               const topics = [ '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef', null, null ];
               const logs = await provider.getLogs({ address: coinInfo.address, fromBlock: startBatch, toBlock: endBatch, topics });
-              console.log("logs: " + JSON.stringify(logs, null, 2));
+              for (const event of logs) {
+                if (!event.removed) {
+                  let from, to, tokens;
+                  if (event.topics.length == 4) {
+                    from = ethers.utils.getAddress('0x' + event.topics[1].substring(26));
+                    to = ethers.utils.getAddress('0x' + event.topics[2].substring(26));
+                    tokens = ethers.BigNumber.from(event.topics[3]).toString();
+                  } else if (event.topics.length == 3) {
+                    from = ethers.utils.getAddress('0x' + event.topics[1].substring(26));
+                    to = ethers.utils.getAddress('0x' + event.topics[2].substring(26));
+                    tokens = ethers.BigNumber.from(event.data).toString();
+                  } else if (event.topics.length == 1) {
+                    from = ethers.utils.getAddress('0x' + event.data.substring(26, 66));
+                    to = ethers.utils.getAddress('0x' + event.data.substring(90, 130));
+                    tokens = ethers.BigNumber.from('0x' + event.data.substring(130, 193)).toString();
+                  }
+                  // console.log("event " + JSON.stringify(event, null, 2));
+                  // console.log("from: " + from + ", to: " + to + ", tokens: " + tokens);
+                  const record = {
+                    blockNumber: event.blockNumber,
+                    transactionIndex: event.transactionIndex,
+                    address: event.address,
+                    transactionHash: event.transactionHash,
+                    logIndex: event.logIndex,
+                    from,
+                    to,
+                    tokens,
+                  }
+                  if (!(record.blockNumber in this.transfers)) {
+                    Vue.set(this.transfers, record.blockNumber, {});
+                  }
+                  if (!(record.transactionIndex in this.transfers[record.blockNumber])) {
+                    Vue.set(this.transfers[record.blockNumber], record.transactionIndex, {});
+                  }
+                  if (!(record.transactionHash in this.transfers[record.blockNumber][record.transactionIndex])) {
+                    Vue.set(this.transfers[record.blockNumber][record.transactionIndex], record.transactionHash, {});
+                  }
+                  if (!(record.logIndex in this.transfers[record.blockNumber][record.transactionIndex][record.transactionHash])) {
+                    Vue.set(this.transfers[record.blockNumber][record.transactionIndex][record.transactionHash], record.logIndex, {
+                      from: record.from,
+                      to: record.to,
+                      tokens: record.tokens,
+                    });
+                  }
+                }
+              }
             }
-
-
-            // {
-            //   "blockNumber": 17180232,
-            //   "blockHash": "0xf5604226794f9c71a11315f999f6149e064a4342c6b202fe59670a76c4157fe7",
-            //   "transactionIndex": 153,
-            //   "removed": false,
-            //   "address": "0xA35923162C49cF95e6BF26623385eb431ad920D3",
-            //   "data": "0x00000000000000000000000000000000000000000002bc02e6654bafa7347cc1",
-            //   "topics": [
-            //     "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef",
-            //     "0x0000000000000000000000007baece5d47f1bc5e1953fbe0e9931d54dab6d810",
-            //     "0x000000000000000000000000d2e48ba114527126ef20a5b21282ed3aed7c220a"
-            //   ],
-            //   "transactionHash": "0x97a5af9b046f3b04e0d7e2a743aaa825037f19788e0aa726a03759650671238e",
-            //   "logIndex": 357
-            // },
-
-
+            console.log("this.transfers: " + JSON.stringify(this.transfers, null, 2));
+            await db.cache.put({ objectName: coinInfo.address, object: this.transfers }).then (function() {
+            }).catch(function(error) {
+              console.log("error: " + error);
+            });
           },
           async syncCoins() {
             console.log("syncCoins");
@@ -1136,7 +1169,7 @@
             for (const [coinAddress, coinInfo] of Object.entries(this.settings.coins)) {
               if (coinInfo.sync && !this.sync.halt) {
                 console.log("Processing: " + coinAddress + " " + coinInfo.symbol + " " + coinInfo.name);
-                await this.syncCoin({ address: coinAddress, ...coinInfo })
+                await this.syncCoin(db0, { address: coinAddress, ...coinInfo })
               //   const accountInfo = this.settings.accounts[address] || {};
               //   this.sync.completed = 0;
               //   this.sync.total = null;
@@ -1183,50 +1216,75 @@
             await this.loadNFTs();
           },
           async loadNFTs() {
+            console.log("loadNFTs");
             const db0 = new Dexie(this.db.name);
             db0.version(this.db.version).stores(this.db.schemaDefinition);
-            const collections = {};
-            const tokens = [];
-            for (const [address, accountItem] of Object.entries(this.settings.accounts)) {
-              if (accountItem.include) {
-                // console.log("Including: " + address + " " + JSON.stringify(accountItem));
-                const tokensData = await db0.cache.where("objectName").equals(address).toArray();
-                if (tokensData.length == 1) {
-                  for (const token of tokensData[0].object) {
-                    // console.log(JSON.stringify(token));
-                    const contract = ethers.utils.getAddress(token.contract);
-                    if (!(contract in collections)) {
-                      collections[contract] = {
-                        name: token.collection.name,
-                        imageUrl: token.collection.imageUrl,
-                        floorAskPrice: token.collection.floorAskPrice,
-                        royaltiesBps: token.collection.royaltiesBps,
-                        // royalties: token.collection.royalties,
-                      };
+            const transfers = {};
+            // const tokens = [];
+            for (const [coinAddress, coinInfo] of Object.entries(this.settings.coins)) {
+              if (coinInfo.include) {
+                console.log("Loading: " + coinAddress + " " + coinInfo.symbol + " " + coinInfo.name);
+                const transfersDataObject = await db0.cache.where("objectName").equals(coinAddress).toArray();
+                if (transfersDataObject.length == 1) {
+                  // console.log("transfersDataObject: " + JSON.stringify(transfersDataObject, null, 2));
+                  for (const [blockNumber, txIndexes] of Object.entries(transfersDataObject[0].object)) {
+                    // console.log(blockNumber + " => " + JSON.stringify(txIndexes, null, 2));
+                    if (!(blockNumber in transfers)) {
+                      transfers[blockNumber] = {};
                     }
-                    tokens.push({
-                      owner: address,
-                      contract,
-                      tokenId: token.tokenId,
-                      kind: token.kind,
-                      name: token.name,
-                      image: token.image,
-                      media: token.media,
-                      rarityScore: token.rarityScore,
-                      rarityRank: token.rarityRank,
-                      lastSale: token.lastSale,
-                      topBid: token.topBid,
-                    });
+                    for (const [txIndex, txHashes] of Object.entries(txIndexes)) {
+                      // console.log(txIndex + " => " + JSON.stringify(txHashes, null, 2));
+                      for (const [txHash, logIndexes] of Object.entries(txHashes)) {
+                        // console.log(txHash + " => " + JSON.stringify(logIndexes));
+                        for (const [logIndex, txData] of Object.entries(logIndexes)) {
+                          console.log(txHash + " => " + JSON.stringify(txData));
+                        }
+                      }
+                    }
+
+                    // 17183225 => {
+                    //   "33": {
+                    //     "0xc1427e9eed43037d93b0c81f1806094a7ce80a1992aef03ac18124e040ce3b8b": {
+                    //       "343": {
+                    //         "from": "0x89D83496af9187699e1312492813015d68d2d074",
+                    //         "to": "0x7baecE5d47f1BC5E1953FBE0E9931D54DAB6D810",
+                    //         "tokens": "25000000000000000000000000"
+                    //       }
+                    //     }
+                    //   },
+
+              //       const contract = ethers.utils.getAddress(token.contract);
+              //       if (!(contract in collections)) {
+              //         collections[contract] = {
+              //           name: token.collection.name,
+              //           imageUrl: token.collection.imageUrl,
+              //           floorAskPrice: token.collection.floorAskPrice,
+              //           royaltiesBps: token.collection.royaltiesBps,
+              //           // royalties: token.collection.royalties,
+              //         };
+              //       }
+              //       tokens.push({
+              //         owner: address,
+              //         contract,
+              //         tokenId: token.tokenId,
+              //         kind: token.kind,
+              //         name: token.name,
+              //         image: token.image,
+              //         media: token.media,
+              //         rarityScore: token.rarityScore,
+              //         rarityRank: token.rarityRank,
+              //         lastSale: token.lastSale,
+              //         topBid: token.topBid,
+              //       });
                   }
                 }
-
               }
             }
             db0.close();
-            // console.log(JSON.stringify(collections, null, 2));
+            console.log(JSON.stringify(transfers, null, 2));
             // console.log(JSON.stringify(tokens, null, 2));
-            this.collections = collections;
-            this.tokens = tokens;
+            this.transfers = transfers;
+            // this.tokens = tokens;
           },
           async requestReservoirAPITokenMetadataRefresh(token) {
             console.log("requestReservoirAPITokenMetadataRefresh - token: " + JSON.stringify(token));
