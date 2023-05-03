@@ -332,6 +332,7 @@
               </template>
               <template #head(sync)="data">
                 Sync
+                <!--
                 <b-dropdown size="sm" variant="link" v-b-popover.hover="'Toggle selection'">
                   <template #button-content>
                     <b-icon-check-square shift-v="+1" font-scale="0.9"></b-icon-check-square>
@@ -339,9 +340,11 @@
                   <b-dropdown-item href="#" @click="toggleSyncAccounts(pagedFilteredSortedAccounts)">Toggle sync for all accounts on this page</b-dropdown-item>
                   <b-dropdown-item href="#" @click="toggleSyncAccounts(filteredSortedAccounts)">Toggle sync for all accounts on all pages</b-dropdown-item>
                 </b-dropdown>
+                -->
               </template>
               <template #head(include)="data">
                 Include
+                <!--
                 <b-dropdown size="sm" variant="link" v-b-popover.hover="'Toggle selection'">
                   <template #button-content>
                     <b-icon-check-square shift-v="+1" font-scale="0.9"></b-icon-check-square>
@@ -349,6 +352,7 @@
                   <b-dropdown-item href="#" @click="toggleIncludeAccounts(pagedFilteredSortedAccounts)">Toggle include for all accounts on this page</b-dropdown-item>
                   <b-dropdown-item href="#" @click="toggleIncludeAccounts(filteredSortedAccounts)">Toggle include for all accounts on all pages</b-dropdown-item>
                 </b-dropdown>
+                -->
               </template>
               <template #cell(group)="data">
                 <b-form-input type="text" size="sm" v-model.trim="data.item.group" @change="setAccountField(data.item.address, 'group', $event)" placeholder="group"></b-form-input>
@@ -411,8 +415,8 @@
             <b-table small fixed striped responsive hover :fields="accountsFields" :items="pagedFilteredSortedAccounts" show-empty empty-html="Click [+] above to add new collections" head-variant="light" class="mx-0 my-1">
               <template #head(address)="data">
                 Account <b-button v-b-modal.new-account-modal-prevent-closing variant="link" v-b-popover.hover.top="'Add new account'"><b-icon-plus-square shift-v="+1" font-scale="0.8"></b-icon-plus-square></b-button>
-                <b-modal id="new-account-modal-prevent-closing" ref="modal" title="New Address" @show="newAddressResetModal" @hidden="newAddressResetModal" @ok="newAddressHandleOk">
-                  <form ref="form" @submit.stop.prevent="newAddressHandleSubmit">
+                <b-modal id="new-account-modal-prevent-closing" ref="modal" title="New Account" @show="newAccountResetModal" @hidden="newAccountResetModal" @ok="newAccountHandleOk">
+                  <form ref="accountForm" @submit.stop.prevent="newAccountHandleSubmit">
                     <b-form-group label="Address" label-for="name-input" :state="newAddressState" invalid-feedback="Please enter a valid Ethereum address">
                       <b-form-input id="name-input" v-model="newAddress" :state="newAddressState" required placeholder="0x1234..."></b-form-input>
                     </b-form-group>
@@ -543,8 +547,10 @@
           ],
           coinsFields: [
             { key: 'address', label: '#', sortable: false, thStyle: 'width: 30%;', tdClass: 'text-truncate' },
-            { key: 'group', label: 'Group', sortable: false, thStyle: 'width: 20%;', tdClass: 'text-truncate' },
+            { key: 'symbol', label: 'Symbol', sortable: false, thStyle: 'width: 20%;', tdClass: 'text-truncate' },
             { key: 'name', label: 'Name', sortable: false, thStyle: 'width: 20%;', tdClass: 'text-truncate' },
+            { key: 'decimals', label: 'Decimals', sortable: false, thStyle: 'width: 10%;', tdClass: 'text-truncate' },
+            { key: 'totalSupply', label: 'Total Supply', sortable: false, thStyle: 'width: 10%;', tdClass: 'text-truncate' },
             // { key: 'ensName', label: 'ENS Name', sortable: false, thStyle: 'width: 15%;', tdClass: 'text-truncate' },
             { key: 'sync', label: 'Sync', sortable: false, thStyle: 'width: 10%;', tdClass: 'text-truncate' },
             { key: 'include', label: 'Include', sortable: false, thStyle: 'width: 10%;', tdClass: 'text-truncate' },
@@ -667,17 +673,23 @@
             });
             return results;
           },
+          newCoinAddressState() {
+            if (this.newCoinAddress) {
+              try {
+                const a = ethers.utils.getAddress(this.newCoinAddress);
+                return a && a.length > 0;
+              } catch (e) {
+                return false;
+              }
+            }
+            return null;
+          },
           newAddressState() {
-            let status = false;
             if (this.newAddress) {
               try {
-                // console.log("newAddressState: " + this.newAddress.address)
                 const a = ethers.utils.getAddress(this.newAddress);
-                status = a && a.length > 0;
-                // console.log("newAddressState: " + status);
-                return status;
+                return a && a.length > 0;
               } catch (e) {
-                // console.log(e);
                 return false;
               }
             }
@@ -898,8 +910,8 @@
               return valid;
             }
           },
-          checkFormValidity() {
-            const valid = this.$refs.form.checkValidity()
+          checkAccountFormValidity() {
+            const valid = this.$refs.accountForm.checkValidity()
             if (this.newAddress && this.newAddress.length > 0) {
               try {
                 const a = ethers.utils.getAddress(this.newAddress);
@@ -929,9 +941,10 @@
             if (!(this.newCoinAddress in this.settings.coins)) {
               console.log("Adding: " + this.newCoinAddress);
               Vue.set(this.settings.coins, this.newCoinAddress, {
+                symbol: null,
                 name: null,
-                ensName: null,
-                group: null,
+                decimals: null,
+                totalSupply: null,
                 sync: true,
                 include: true,
               });
@@ -944,18 +957,18 @@
             })
             this.saveSettings();
           },
-          newAddressResetModal() {
+          newAccountResetModal() {
             this.newAddress = null;
           },
-          newAddressHandleOk(bvModalEvent) {
+          newAccountHandleOk(bvModalEvent) {
             // Prevent modal from closing
             bvModalEvent.preventDefault();
             // Trigger submit handler
-            this.newAddressHandleSubmit();
+            this.newAccountHandleSubmit();
           },
-          newAddressHandleSubmit() {
+          newAccountHandleSubmit() {
             // Exit when the form isn't valid
-            if (!this.checkFormValidity()) {
+            if (!this.checkAccountFormValidity()) {
               return;
             }
             if (!(this.newAddress in this.settings.accounts)) {
