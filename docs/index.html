@@ -52,11 +52,10 @@
           </b-navbar-brand>
           <b-navbar-nav class="ml-auto">
             <b-nav-item size="sm" @click="settings.tabIndex = 0; saveSettings()" :active="settings.tabIndex == 0" active-class="active" v-b-popover.hover="'View/sync Coin Data'">Coin Data</b-nav-item>
-            <!-- <b-nav-item size="sm" @click="settings.tabIndex = 1; saveSettings()" :active="settings.tabIndex == 1" active-class="active" v-b-popover.hover="'View collections'">Collections</b-nav-item> -->
             <b-nav-item size="sm" @click="settings.tabIndex = 1; saveSettings()" :active="settings.tabIndex == 1" active-class="active" v-b-popover.hover="'View/edit coin contracts'">Coins</b-nav-item>
             <b-nav-item size="sm" @click="settings.tabIndex = 2; saveSettings()" :active="settings.tabIndex == 2" active-class="active" v-b-popover.hover="'View/edit accounts'">Accounts</b-nav-item>
-            <!-- <b-avatar v-if="coinbase && coinbase != ensOrAddress(coinbase)" rounded variant="light" size="2.0rem" :src="'https://metadata.ens.domains/mainnet/avatar/' + ensOrAddress(coinbase)" v-b-popover.hover="'Your ENS avatar if set'"></b-avatar>
-            <b-button size="sm" variant="primary" class="ml-1" @click="processIt('connect')" v-b-popover.hover.bottom="'Click to update wallet'">{{ coinbase ? ensOrAddress(coinbase, 32) : 'Connect' }}</b-button> -->
+            <b-avatar v-if="coinbase && coinbase != ensOrAddress(coinbase)" rounded variant="light" size="2.0rem" :src="'https://metadata.ens.domains/mainnet/avatar/' + ensOrAddress(coinbase)" v-b-popover.hover="'Your ENS avatar if set'"></b-avatar>
+            <b-button size="sm" variant="outline-primary" class="ml-1" @click="processIt('connect')" v-b-popover.hover.bottom="'Click to update wallet'">{{ coinbase ? ensOrAddress(coinbase, 10) : 'Connect' }}</b-button>
           </b-navbar-nav>
         </b-navbar>
 
@@ -64,7 +63,7 @@
           <b-alert v-if="false" size="sm" dismissible variant="warning" show class="m-1 my-0">
             Warning: This is experimental unaudited software. Revoke permissions when not required, at this early stage.
           </b-alert>
-          <b-card v-if="false" class="m-2 p-1" header-class="warningheader" header="Welcome" v-if="!coinbase">
+          <b-card class="m-2 p-1" header-class="warningheader" header="Welcome" v-if="!coinbase">
             <b-card-text>
               Please install the MetaMask extension, connect to the Ethereum mainnet and refresh this page. Then click the [Connect] button on the top right.
             </b-card-text>
@@ -129,7 +128,7 @@
             </b-form-group>
           </b-modal>
 
-          <b-card v-if="settings.tabIndex == 0" class="m-0 p-0 border-0" body-class="m-1 p-0" header-class="m-0 p-2">
+          <b-card v-if="coinbase && settings.tabIndex == 0" class="m-0 p-0 border-0" body-class="m-1 p-0" header-class="m-0 p-2">
             <div class="d-flex flex-wrap m-0 p-0">
               <div class="mt-0 pr-1">
                 <b-form-input type="text" size="sm" v-model.trim="settings.tokensTable.tokenFilter" @change="saveSettings" debounce="600" v-b-popover.hover.top="'Token id and name filter'" placeholder="🔍 token id/name regex" style="min-width: 8.0rem;"></b-form-input>
@@ -278,7 +277,7 @@
             </b-table>
           </b-card>
 
-          <b-card v-if="settings.tabIndex == 1" class="m-0 p-0 border-0" body-class="m-1 p-0" header-class="m-0 p-2">
+          <b-card v-if="coinbase && settings.tabIndex == 1" class="m-0 p-0 border-0" body-class="m-1 p-0" header-class="m-0 p-2">
             <div class="d-flex flex-wrap m-0 p-0">
               <div class="mt-0 pr-1">
                 <b-form-input type="text" size="sm" v-model.trim="settings.coinsTable.filter" @change="saveSettings" debounce="600" v-b-popover.hover.top="'Account address/name filter'" placeholder="🔍 add/name regex" style="min-width: 8.0rem;"></b-form-input>
@@ -373,7 +372,7 @@
 
           </b-card>
 
-          <b-card v-if="settings.tabIndex == 2" class="m-0 p-0 border-0" body-class="m-1 p-0" header-class="m-0 p-2">
+          <b-card v-if="coinbase && settings.tabIndex == 2" class="m-0 p-0 border-0" body-class="m-1 p-0" header-class="m-0 p-2">
             <div class="d-flex flex-wrap m-0 p-0">
               <div class="mt-0 pr-1">
                 <b-form-input type="text" size="sm" v-model.trim="settings.accountsTable.filter" @change="saveSettings" debounce="600" v-b-popover.hover.top="'Account address/name filter'" placeholder="🔍 add/name regex" style="min-width: 8.0rem;"></b-form-input>
