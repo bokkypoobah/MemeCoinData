@@ -1094,6 +1094,40 @@
           },
           async syncCoin(coinInfo) {
             console.log("syncCoin: " + coinInfo.address + " " + coinInfo.symbol + " " + coinInfo.name);
+            // const startBlock = accountData && accountData.updated && accountData.updated.blockNumber && (parseInt(accountData.updated.blockNumber) - parameter.OVERLAPBLOCKS) || 0;
+            const provider = new ethers.providers.Web3Provider(window.ethereum);
+            const block = await provider.getBlock();
+            const CONFIRMATIONS = 10;
+            const confirmedBlockNumber = block && block.number && (block.number - CONFIRMATIONS) || null;
+            console.log("confirmedBlockNumber: " + confirmedBlockNumber);
+            const startBlock = 17149228;
+            const BATCHSIZE = 1000;
+            for (let startBatch = startBlock; startBatch < confirmedBlockNumber; startBatch += BATCHSIZE) {
+              const endBatch = (parseInt(startBatch) + BATCHSIZE < confirmedBlockNumber) ? (parseInt(startBatch) + BATCHSIZE) : confirmedBlockNumber;
+              console.log("batch: " + startBatch + " - " + endBatch);
+              const topics = [ '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef', null, null ];
+              const logs = await provider.getLogs({ address: coinInfo.address, fromBlock: startBatch, toBlock: endBatch, topics });
+              console.log("logs: " + JSON.stringify(logs, null, 2));
+            }
+
+
+            // {
+            //   "blockNumber": 17180232,
+            //   "blockHash": "0xf5604226794f9c71a11315f999f6149e064a4342c6b202fe59670a76c4157fe7",
+            //   "transactionIndex": 153,
+            //   "removed": false,
+            //   "address": "0xA35923162C49cF95e6BF26623385eb431ad920D3",
+            //   "data": "0x00000000000000000000000000000000000000000002bc02e6654bafa7347cc1",
+            //   "topics": [
+            //     "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef",
+            //     "0x0000000000000000000000007baece5d47f1bc5e1953fbe0e9931d54dab6d810",
+            //     "0x000000000000000000000000d2e48ba114527126ef20a5b21282ed3aed7c220a"
+            //   ],
+            //   "transactionHash": "0x97a5af9b046f3b04e0d7e2a743aaa825037f19788e0aa726a03759650671238e",
+            //   "logIndex": 357
+            // },
+
+
           },
           async syncCoins() {
             console.log("syncCoins");
