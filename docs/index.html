@@ -700,6 +700,7 @@
                   totalSupply: item.totalSupply,
                   sync: item.sync,
                   include: item.include,
+                  latestBlockNumber: item.latestBlockNumber,
                 });
               }
             }
@@ -929,6 +930,7 @@
               const coinInfo = {
                 sync: true,
                 include: true,
+                latestBlockNumber: null,
               };
               try {
                 const tokenInfos = await erc721Helper.tokenInfo([this.newCoinAddress], { gasLimit: 1000000 });
