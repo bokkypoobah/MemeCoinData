@@ -353,11 +353,8 @@
                 </b-dropdown>
                 -->
               </template>
-              <template #cell(group)="data">
-                <b-form-input type="text" size="sm" v-model.trim="data.item.group" @change="setAccountField(data.item.address, 'group', $event)" placeholder="group"></b-form-input>
-              </template>
-              <template #cell(name)="data">
-                <b-form-input type="text" size="sm" v-model.trim="data.item.name" @change="setAccountField(data.item.address, 'name', $event)" placeholder="name"></b-form-input>
+              <template #cell(totalSupply)="data">
+                {{ formatERC20(data.item.totalSupply, data.item.decimals) }}
               </template>
               <template #cell(sync)="data">
                 <b-form-checkbox size="sm" :checked="data.item.sync ? 1 : 0" value="1" @change="toggleAccountField(data.item.address, 'sync')" v-b-popover.hover="'Include in sync process?'"></b-form-checkbox>
@@ -546,14 +543,13 @@
           ],
           coinsFields: [
             { key: 'address', label: '#', sortable: false, thStyle: 'width: 30%;', tdClass: 'text-truncate' },
-            { key: 'symbol', label: 'Symbol', sortable: false, thStyle: 'width: 20%;', tdClass: 'text-truncate' },
-            { key: 'name', label: 'Name', sortable: false, thStyle: 'width: 20%;', tdClass: 'text-truncate' },
-            { key: 'decimals', label: 'Decimals', sortable: false, thStyle: 'width: 10%;', tdClass: 'text-truncate' },
-            { key: 'totalSupply', label: 'Total Supply', sortable: false, thStyle: 'width: 10%;', tdClass: 'text-truncate' },
-            // { key: 'ensName', label: 'ENS Name', sortable: false, thStyle: 'width: 15%;', tdClass: 'text-truncate' },
-            { key: 'sync', label: 'Sync', sortable: false, thStyle: 'width: 10%;', tdClass: 'text-truncate' },
-            { key: 'include', label: 'Include', sortable: false, thStyle: 'width: 10%;', tdClass: 'text-truncate' },
-            { key: 'delete', label: 'Delete', sortable: false, thStyle: 'width: 10%;', tdClass: 'text-truncate' },
+            { key: 'symbol', label: 'Symbol', sortable: false, thStyle: 'width: 15%;', tdClass: 'text-truncate' },
+            { key: 'name', label: 'Name', sortable: false, thStyle: 'width: 15%;', tdClass: 'text-truncate' },
+            { key: 'decimals', label: 'Decimals', sortable: false, thStyle: 'width: 10%;', thClass: 'text-right', tdClass: 'text-right' },
+            { key: 'totalSupply', label: 'Total Supply', sortable: false, thStyle: 'width: 10%;', thClass: 'text-right', tdClass: 'text-right' },
+            { key: 'sync', label: 'Sync', sortable: false, thStyle: 'width: 7%;', tdClass: 'text-truncate' },
+            { key: 'include', label: 'Include', sortable: false, thStyle: 'width: 7%;', tdClass: 'text-truncate' },
+            { key: 'delete', label: 'Delete', sortable: false, thStyle: 'width: 6%;', tdClass: 'text-truncate' },
           ],
           accountsFields: [
             { key: 'address', label: '#', sortable: false, thStyle: 'width: 30%;', tdClass: 'text-truncate' },
@@ -707,9 +703,10 @@
               if (include) {
                 results.push({
                   address,
+                  symbol: item.symbol,
                   name: item.name,
-                  ensName: item.ensName,
-                  group: item.group,
+                  decimals: item.decimals,
+                  totalSupply: item.totalSupply,
                   sync: item.sync,
                   include: item.include,
                 });
@@ -932,21 +929,46 @@
             // Trigger submit handler
             this.newCoinAddressHandleSubmit();
           },
-          newCoinAddressHandleSubmit() {
+          async newCoinAddressHandleSubmit() {
             // Exit when the form isn't valid
             if (!this.checkCoinFormValidity()) {
               return;
             }
             if (!(this.newCoinAddress in this.settings.coins)) {
               console.log("Adding: " + this.newCoinAddress);
-              Vue.set(this.settings.coins, this.newCoinAddress, {
-                symbol: null,
-                name: null,
-                decimals: null,
-                totalSupply: null,
+              const provider = new ethers.providers.Web3Provider(window.ethereum);
+              const erc721Helper = new ethers.Contract(ERC721HELPERADDRESS, ERC721HELPERABI, provider);
+              const coinInfo = {
                 sync: true,
                 include: true,
-              });
+              };
+              try {
+                const tokenInfos = await erc721Helper.tokenInfo([this.newCoinAddress], { gasLimit: 1000000 });
+                console.log("tokenInfos: " + JSON.stringify(tokenInfos, null, 2));
+                for (let i = 0; i < tokenInfos[0].length; i++) {
+                  coinInfo.mask = tokenInfos[0][i].toNumber();
+                  coinInfo.symbol = tokenInfos[1][i];
+                  coinInfo.name = tokenInfos[2][i];
+                  coinInfo.totalSupply = ethers.BigNumber.from(tokenInfos[3][i]).toString();
+                }
+              } catch (e) {
+                console.log("newCoinAddressHandleSubmit ERROR - account: " + this.newCoinAddress + ", message: " + e.message);
+                coinInfo.mask = 0;
+                coinInfo.symbol = null;
+                coinInfo.name = null;
+              }
+              coinInfo.decimals = null;
+              if ((coinInfo.mask & MASK_ISERC20) == MASK_ISERC20) {
+                const erc20 = new ethers.Contract(this.newCoinAddress, ERC20ABI, provider);
+                try {
+                  coinInfo.decimals = ethers.BigNumber.from(await erc20.decimals()).toString();
+                } catch (e) {
+                  console.log("newCoinAddressHandleSubmit ERROR - decimals - account: " + this.newCoinAddress + ", message: " + e.message);
+                }
+                Vue.set(this.settings.coins, this.newCoinAddress, { ...coinInfo, mask: undefined });
+              } else {
+                console.log("Not ERC-20: " + this.newCoinAddress);
+              }
             } else {
               console.log("Discarding duplicate: " + this.newCoinAddress);
             }
@@ -1232,6 +1254,13 @@
             } catch (err) {
             }
             return e.toFixed(9);
+          },
+          formatERC20(e, decimals = 18) {
+            try {
+              return e ? ethers.utils.formatUnits(e, decimals) : null;
+            } catch (err) {
+            }
+            return e.toString();
           },
           ensOrAddress(address, length = 0) {
             if (this.ensMap) {
