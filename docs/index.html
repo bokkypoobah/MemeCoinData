@@ -53,7 +53,8 @@
           <b-navbar-nav class="ml-auto">
             <b-nav-item size="sm" @click="settings.tabIndex = 0; saveSettings()" :active="settings.tabIndex == 0" active-class="active" v-b-popover.hover="'View/sync Coin Data'">Coin Data</b-nav-item>
             <!-- <b-nav-item size="sm" @click="settings.tabIndex = 1; saveSettings()" :active="settings.tabIndex == 1" active-class="active" v-b-popover.hover="'View collections'">Collections</b-nav-item> -->
-            <b-nav-item size="sm" @click="settings.tabIndex = 2; saveSettings()" :active="settings.tabIndex == 2" active-class="active" v-b-popover.hover="'View/edit coin contracts'">Coins</b-nav-item>
+            <b-nav-item size="sm" @click="settings.tabIndex = 1; saveSettings()" :active="settings.tabIndex == 1" active-class="active" v-b-popover.hover="'View/edit coin contracts'">Coins</b-nav-item>
+            <b-nav-item size="sm" @click="settings.tabIndex = 2; saveSettings()" :active="settings.tabIndex == 2" active-class="active" v-b-popover.hover="'View/edit accounts'">Accounts</b-nav-item>
             <!-- <b-avatar v-if="coinbase && coinbase != ensOrAddress(coinbase)" rounded variant="light" size="2.0rem" :src="'https://metadata.ens.domains/mainnet/avatar/' + ensOrAddress(coinbase)" v-b-popover.hover="'Your ENS avatar if set'"></b-avatar>
             <b-button size="sm" variant="primary" class="ml-1" @click="processIt('connect')" v-b-popover.hover.bottom="'Click to update wallet'">{{ coinbase ? ensOrAddress(coinbase, 32) : 'Connect' }}</b-button> -->
           </b-navbar-nav>
@@ -276,11 +277,98 @@
               </template>
             </b-table>
           </b-card>
+
           <b-card v-if="settings.tabIndex == 1" class="m-0 p-0 border-0" body-class="m-1 p-0" header-class="m-0 p-2">
-            <b-card-text>
-              TODO
-            </b-card-text>
+            <div class="d-flex flex-wrap m-0 p-0">
+              <div class="mt-0 pr-1">
+                <b-form-input type="text" size="sm" v-model.trim="settings.coinsTable.filter" @change="saveSettings" debounce="600" v-b-popover.hover.top="'Account address/name filter'" placeholder="🔍 add/name regex" style="min-width: 8.0rem;"></b-form-input>
+              </div>
+              <div class="mt-0 flex-grow-1">
+              </div>
+              <!--
+              <div v-if="!sync.section" class="mt-0 pr-1">
+                <b-button size="sm" :pressed.sync="settings.editAccounts" @click="saveSettings" :variant="settings.editAccounts ? 'danger' : 'link'" v-b-popover.hover.top="settings.editAccounts ? 'End adding/editing accounts. Click Sync to apply changes' : 'Add/Edit accounts'"><b-icon-pencil shift-v="+1" font-scale="1.0"></b-icon-pencil></b-button>
+              </div>
+              <div class="mt-0 flex-grow-1">
+              </div>
+              -->
+              <!--
+              <div class="mt-0 pr-1">
+                <b-dropdown size="sm" variant="link" v-b-popover.hover.top="'Export/Import accounts'">
+                  <template #button-content>
+                    <b-icon-file-earmark-spreadsheet shift-v="+1" font-scale="1.2"></b-icon-file-earmark-spreadsheet>
+                  </template>
+                  <b-dropdown-item @click="exportAccounts" >Export</b-dropdown-item>
+                  <b-dropdown-item @click="showModalAccountsImport();">Import</b-dropdown-item>
+                </b-dropdown>
+              </div>
+              -->
+              <div class="mt-0 flex-grow-1">
+              </div>
+              <div class="mt-0 pl-1">
+                <b-form-select size="sm" v-model="settings.coinsTable.sortOption" @change="saveSettings" :options="accountsSortOptions" v-b-popover.hover.top="'Yeah. Sort'"></b-form-select>
+              </div>
+              <div class="mt-0 pl-1">
+                <font size="-2" v-b-popover.hover.top="'# tokens'">{{ filteredSortedAccounts.length + '/' + Object.keys(settings.accounts).length }}</font>
+              </div>
+              <div class="mt-0 pl-1">
+                <b-pagination size="sm" v-model="settings.coinsTable.currentPage" @input="saveSettings" :total-rows="filteredSortedAccounts.length" :per-page="settings.coinsTable.pageSize" style="height: 0;"></b-pagination>
+              </div>
+              <div class="mt-0 pl-1">
+                <b-form-select size="sm" v-model="settings.coinsTable.pageSize" @change="saveSettings" :options="pageSizes" v-b-popover.hover.top="'Coins page size'"></b-form-select>
+              </div>
+            </div>
+
+            <b-table small fixed striped responsive hover :fields="coinsFields" :items="pagedFilteredSortedCoins" show-empty empty-html="Click [+] above to add new collections" head-variant="light" class="mx-0 my-1">
+              <template #head(address)="data">
+                ERC-20 Address <b-button v-b-modal.new-coin-modal-prevent-closing variant="link" v-b-popover.hover.top="'Add new account'"><b-icon-plus-square shift-v="+1" font-scale="0.8"></b-icon-plus-square></b-button>
+                <b-modal id="new-coin-modal-prevent-closing" ref="modal" title="New ERC-20 Address" @show="newCoinAddressResetModal" @hidden="newCoinAddressResetModal" @ok="newCoinAddressHandleOk">
+                  <form ref="coinForm" @submit.stop.prevent="newCoinAddressHandleSubmit">
+                    <b-form-group label="Address" label-for="name-input" :state="newCoinAddressState" invalid-feedback="Please enter a valid Ethereum address">
+                      <b-form-input id="name-input" v-model="newCoinAddress" :state="newCoinAddressState" required placeholder="0x1234..."></b-form-input>
+                    </b-form-group>
+                  </form>
+                </b-modal>
+              </template>
+              <template #head(sync)="data">
+                Sync
+                <b-dropdown size="sm" variant="link" v-b-popover.hover="'Toggle selection'">
+                  <template #button-content>
+                    <b-icon-check-square shift-v="+1" font-scale="0.9"></b-icon-check-square>
+                  </template>
+                  <b-dropdown-item href="#" @click="toggleSyncAccounts(pagedFilteredSortedAccounts)">Toggle sync for all accounts on this page</b-dropdown-item>
+                  <b-dropdown-item href="#" @click="toggleSyncAccounts(filteredSortedAccounts)">Toggle sync for all accounts on all pages</b-dropdown-item>
+                </b-dropdown>
+              </template>
+              <template #head(include)="data">
+                Include
+                <b-dropdown size="sm" variant="link" v-b-popover.hover="'Toggle selection'">
+                  <template #button-content>
+                    <b-icon-check-square shift-v="+1" font-scale="0.9"></b-icon-check-square>
+                  </template>
+                  <b-dropdown-item href="#" @click="toggleIncludeAccounts(pagedFilteredSortedAccounts)">Toggle include for all accounts on this page</b-dropdown-item>
+                  <b-dropdown-item href="#" @click="toggleIncludeAccounts(filteredSortedAccounts)">Toggle include for all accounts on all pages</b-dropdown-item>
+                </b-dropdown>
+              </template>
+              <template #cell(group)="data">
+                <b-form-input type="text" size="sm" v-model.trim="data.item.group" @change="setAccountField(data.item.address, 'group', $event)" placeholder="group"></b-form-input>
+              </template>
+              <template #cell(name)="data">
+                <b-form-input type="text" size="sm" v-model.trim="data.item.name" @change="setAccountField(data.item.address, 'name', $event)" placeholder="name"></b-form-input>
+              </template>
+              <template #cell(sync)="data">
+                <b-form-checkbox size="sm" :checked="data.item.sync ? 1 : 0" value="1" @change="toggleAccountField(data.item.address, 'sync')" v-b-popover.hover="'Include in sync process?'"></b-form-checkbox>
+              </template>
+              <template #cell(include)="data">
+                <b-form-checkbox size="sm" :checked="data.item.include ? 1 : 0" value="1" @change="toggleAccountField(data.item.address, 'include')" v-b-popover.hover="'Include in NFTs view?'"></b-form-checkbox>
+              </template>
+              <template #cell(delete)="data">
+                <b-button size="sm" @click="deleteCoin(data.item.address)" variant="link" v-b-popover.hover="'Delete account'"><b-icon-trash style="color: #ff0000;" shift-v="+1" font-scale="1.0"></b-icon-trash></b-button>
+              </template>
+            </b-table>
+
           </b-card>
+
           <b-card v-if="settings.tabIndex == 2" class="m-0 p-0 border-0" body-class="m-1 p-0" header-class="m-0 p-2">
             <div class="d-flex flex-wrap m-0 p-0">
               <div class="mt-0 pr-1">
@@ -316,14 +404,14 @@
                 <b-pagination size="sm" v-model="settings.accountsTable.currentPage" @input="saveSettings" :total-rows="filteredSortedAccounts.length" :per-page="settings.accountsTable.pageSize" style="height: 0;"></b-pagination>
               </div>
               <div class="mt-0 pl-1">
-                <b-form-select size="sm" v-model="settings.accountsTable.pageSize" @change="saveSettings" :options="pageSizes" v-b-popover.hover.top="'Tokens page size'"></b-form-select>
+                <b-form-select size="sm" v-model="settings.accountsTable.pageSize" @change="saveSettings" :options="pageSizes" v-b-popover.hover.top="'Accounts page size'"></b-form-select>
               </div>
             </div>
 
             <b-table small fixed striped responsive hover :fields="accountsFields" :items="pagedFilteredSortedAccounts" show-empty empty-html="Click [+] above to add new collections" head-variant="light" class="mx-0 my-1">
               <template #head(address)="data">
-                Account <b-button v-b-modal.new-address-modal-prevent-closing variant="link" v-b-popover.hover.top="'Add new account'"><b-icon-plus-square shift-v="+1" font-scale="0.8"></b-icon-plus-square></b-button>
-                <b-modal id="new-address-modal-prevent-closing" ref="modal" title="New Address" @show="newAddressResetModal" @hidden="newAddressResetModal" @ok="newAddressHandleOk">
+                Account <b-button v-b-modal.new-account-modal-prevent-closing variant="link" v-b-popover.hover.top="'Add new account'"><b-icon-plus-square shift-v="+1" font-scale="0.8"></b-icon-plus-square></b-button>
+                <b-modal id="new-account-modal-prevent-closing" ref="modal" title="New Address" @show="newAddressResetModal" @hidden="newAddressResetModal" @ok="newAddressHandleOk">
                   <form ref="form" @submit.stop.prevent="newAddressHandleSubmit">
                     <b-form-group label="Address" label-for="name-input" :state="newAddressState" invalid-feedback="Please enter a valid Ethereum address">
                       <b-form-input id="name-input" v-model="newAddress" :state="newAddressState" required placeholder="0x1234..."></b-form-input>
@@ -387,6 +475,14 @@
             tabIndex: 0,
             showAdditionalFilters: false,
             filters: {},
+            editCoins: false,
+            coins: {},
+            coinsTable: {
+              filter: null,
+              currentPage: 1,
+              pageSize: 10,
+              sortOption: 'lastsaledsc',
+            },
             editAccounts: false,
             accounts: {},
             accountsTable: {
@@ -402,8 +498,9 @@
               pageSize: 10,
               sortOption: 'lastsaledsc',
             },
-            version: 9,
+            version: 0,
           },
+          newCoinAddress: null,
           newAddress: null,
           restoreFile: null,
           restoreAddresses: null,
@@ -443,6 +540,15 @@
             { value: 1000, text: '1k' },
             { value: 2500, text: '2.5k' },
             { value: 10000, text: '10k' },
+          ],
+          coinsFields: [
+            { key: 'address', label: '#', sortable: false, thStyle: 'width: 30%;', tdClass: 'text-truncate' },
+            { key: 'group', label: 'Group', sortable: false, thStyle: 'width: 20%;', tdClass: 'text-truncate' },
+            { key: 'name', label: 'Name', sortable: false, thStyle: 'width: 20%;', tdClass: 'text-truncate' },
+            // { key: 'ensName', label: 'ENS Name', sortable: false, thStyle: 'width: 15%;', tdClass: 'text-truncate' },
+            { key: 'sync', label: 'Sync', sortable: false, thStyle: 'width: 10%;', tdClass: 'text-truncate' },
+            { key: 'include', label: 'Include', sortable: false, thStyle: 'width: 10%;', tdClass: 'text-truncate' },
+            { key: 'delete', label: 'Delete', sortable: false, thStyle: 'width: 10%;', tdClass: 'text-truncate' },
           ],
           accountsFields: [
             { key: 'address', label: '#', sortable: false, thStyle: 'width: 30%;', tdClass: 'text-truncate' },
@@ -576,6 +682,36 @@
               }
             }
             return null;
+          },
+          filteredCoins() {
+            const results = [];
+            const filterRegex = this.settings.coinsTable.filter && this.settings.coinsTable.filter.length > 0 ? new RegExp(this.settings.coinsTable.filter, 'i') : null;
+            for (const [address, item] of Object.entries(this.settings.coins)) {
+              let include = true;
+              if (filterRegex) {
+                if (!filterRegex.test(item.name) && !filterRegex.test(item.group) && !filterRegex.test(address)) {
+                  include = false;
+                }
+              }
+              if (include) {
+                results.push({
+                  address,
+                  name: item.name,
+                  ensName: item.ensName,
+                  group: item.group,
+                  sync: item.sync,
+                  include: item.include,
+                });
+              }
+            }
+            return results;
+          },
+          filteredSortedCoins() {
+            let results = this.filteredCoins;
+            return results;
+          },
+          pagedFilteredSortedCoins() {
+            return this.filteredSortedCoins.slice((this.settings.coinsTable.currentPage - 1) * this.settings.coinsTable.pageSize, this.settings.coinsTable.currentPage * this.settings.coinsTable.pageSize);
           },
           filteredAccounts() {
             const results = [];
@@ -748,6 +884,20 @@
 
         // --- METHODS ---
         methods: {
+          checkCoinFormValidity() {
+            const valid = this.$refs.coinForm.checkValidity()
+            if (this.newCoinAddress && this.newCoinAddress.length > 0) {
+              try {
+                const a = ethers.utils.getAddress(this.newCoinAddress);
+                status = a && a.length > 0;
+                return status;
+              } catch (e) {
+                return false;
+              }
+            } else {
+              return valid;
+            }
+          },
           checkFormValidity() {
             const valid = this.$refs.form.checkValidity()
             if (this.newAddress && this.newAddress.length > 0) {
@@ -761,6 +911,38 @@
             } else {
               return valid;
             }
+          },
+          newCoinAddressResetModal() {
+            this.newCoinAddress = null;
+          },
+          newCoinAddressHandleOk(bvModalEvent) {
+            // Prevent modal from closing
+            bvModalEvent.preventDefault();
+            // Trigger submit handler
+            this.newCoinAddressHandleSubmit();
+          },
+          newCoinAddressHandleSubmit() {
+            // Exit when the form isn't valid
+            if (!this.checkCoinFormValidity()) {
+              return;
+            }
+            if (!(this.newCoinAddress in this.settings.coins)) {
+              console.log("Adding: " + this.newCoinAddress);
+              Vue.set(this.settings.coins, this.newCoinAddress, {
+                name: null,
+                ensName: null,
+                group: null,
+                sync: true,
+                include: true,
+              });
+            } else {
+              console.log("Discarding duplicate: " + this.newCoinAddress);
+            }
+            // Hide the modal manually
+            this.$nextTick(() => {
+              this.$bvModal.hide('new-coin-modal-prevent-closing');
+            })
+            this.saveSettings();
           },
           newAddressResetModal() {
             this.newAddress = null;
@@ -802,12 +984,16 @@
             Vue.set(this.settings.accounts[account], field, value);
             this.saveSettings();
           },
+          deleteCoin(coin) {
+            Vue.delete(this.settings.coins, coin);
+            this.saveSettings();
+          },
           deleteAccount(account) {
             Vue.delete(this.settings.accounts, account);
             this.saveSettings();
           },
           saveSettings() {
-            localStorage.myNFTsSettings = JSON.stringify(this.settings);
+            localStorage.memeCoinDataSettings = JSON.stringify(this.settings);
             // console.log("saveSettings: " + JSON.stringify(this.settings));
           },
           filterChanged(dataType, option) {
@@ -1400,8 +1586,8 @@
           // if ('selectedMainTable' in localStorage) {
           //   this.selectedMainTable = JSON.parse(localStorage.selectedMainTable);
           // }
-          if ('myNFTsSettings' in localStorage) {
-            const tempSettings = JSON.parse(localStorage.myNFTsSettings);
+          if ('memeCoinDataSettings' in localStorage) {
+            const tempSettings = JSON.parse(localStorage.memeCoinDataSettings);
             if ('version' in tempSettings && tempSettings.version == this.settings.version) {
               this.settings = tempSettings;
               if (this.settings.tokensTable.currentPage > 1) {
