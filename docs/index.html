@@ -401,7 +401,7 @@
               </div>
             </div>
 
-            <b-table small fixed striped responsive hover :fields="accountsFields" :items="pagedFilteredSortedAccounts" show-empty empty-html="Click [+] above to your account" head-variant="light" class="mx-0 my-1">
+            <b-table small fixed striped responsive hover :fields="accountsFields" :items="pagedFilteredSortedAccounts" show-empty empty-html="Click [+] above to add your account" head-variant="light" class="mx-0 my-1">
               <template #head(address)="data">
                 Account <b-button v-b-modal.new-account-modal-prevent-closing variant="link" v-b-popover.hover.top="'Add new account'"><b-icon-plus-square shift-v="+1" font-scale="0.8"></b-icon-plus-square></b-button>
                 <b-modal id="new-account-modal-prevent-closing" ref="modal" title="New Account" @show="newAccountResetModal" @hidden="newAccountResetModal" @ok="newAccountHandleOk">
