@@ -1118,11 +1118,6 @@
           async syncCoin(context) {
             console.log("syncCoin: " + context.address + " " + context.symbol);
             // const startBlock = accountData && accountData.updated && accountData.updated.blockNumber && (parseInt(accountData.updated.blockNumber) - parameter.OVERLAPBLOCKS) || 0;
-            const provider = new ethers.providers.Web3Provider(window.ethereum);
-            const block = await provider.getBlock();
-            const CONFIRMATIONS = 10;
-            const confirmedBlockNumber = block && block.number && (block.number - CONFIRMATIONS) || null;
-            console.log("confirmedBlockNumber: " + confirmedBlockNumber);
             const startBlock = 17149228;
             const BATCHSIZE = 1000;
             let transfers = {};
@@ -1132,11 +1127,11 @@
             }
             console.log("transfers BEFORE: " + JSON.stringify(transfers));
 
-            for (let startBatch = startBlock; startBatch < confirmedBlockNumber; startBatch += BATCHSIZE) {
-              const endBatch = (parseInt(startBatch) + BATCHSIZE < confirmedBlockNumber) ? (parseInt(startBatch) + BATCHSIZE) : confirmedBlockNumber;
+            for (let startBatch = startBlock; startBatch < context.confirmedBlockNumber; startBatch += BATCHSIZE) {
+              const endBatch = (parseInt(startBatch) + BATCHSIZE < context.confirmedBlockNumber) ? (parseInt(startBatch) + BATCHSIZE) : context.confirmedBlockNumber;
               console.log("batch: " + startBatch + " - " + endBatch);
               const transferTopics = [ '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef', null, null ];
-              const logs = await provider.getLogs({ address: context.address, fromBlock: startBatch, toBlock: endBatch, topics: transferTopics });
+              const logs = await context.provider.getLogs({ address: context.address, fromBlock: startBatch, toBlock: endBatch, topics: transferTopics });
               for (const event of logs) {
                 if (!event.removed) {
                   let from, to, tokens;
@@ -1189,12 +1184,17 @@
           },
           async syncCoins() {
             console.log("syncCoins");
+            const provider = new ethers.providers.Web3Provider(window.ethereum);
+            const block = await provider.getBlock();
+            const CONFIRMATIONS = 10;
+            const confirmedBlockNumber = block && block.number && (block.number - CONFIRMATIONS) || null;
+            console.log("confirmedBlockNumber: " + confirmedBlockNumber);
             const db0 = new Dexie(this.db.name);
             db0.version(this.db.version).stores(this.db.schemaDefinition);
             for (const [coinAddress, coinInfo] of Object.entries(this.settings.coins)) {
               if (coinInfo.sync && !this.sync.halt) {
-                console.log("Processing: " + coinAddress + " " + coinInfo.symbol + " " + coinInfo.name);
-                await this.syncCoin({ db: db0, address: coinAddress, symbol: coinInfo.symbol })
+                // console.log("Processing: " + coinAddress + " " + coinInfo.symbol + " " + coinInfo.name);
+                await this.syncCoin({ provider, confirmedBlockNumber, db: db0, address: coinAddress, symbol: coinInfo.symbol })
               //   const accountInfo = this.settings.accounts[address] || {};
               //   this.sync.completed = 0;
               //   this.sync.total = null;
@@ -1241,14 +1241,13 @@
             await this.loadTransfers();
           },
           async loadTransfers() {
-            console.log("loadTransfers");
             const db0 = new Dexie(this.db.name);
             db0.version(this.db.version).stores(this.db.schemaDefinition);
             const transfers = {};
             let count = 0;
             for (const [coinAddress, coinInfo] of Object.entries(this.settings.coins)) {
               if (coinInfo.include) {
-                console.log("Loading: " + coinAddress + " " + coinInfo.symbol + " " + coinInfo.name);
+                console.log("loadTransfers: " + coinAddress + " " + coinInfo.symbol + " " + coinInfo.name);
                 const transfersDataObject = await db0.cache.where("objectName").equals(coinAddress).toArray();
                 if (transfersDataObject.length == 1) {
                   for (const [blockNumber, txIndexes] of Object.entries(transfersDataObject[0].object)) {
