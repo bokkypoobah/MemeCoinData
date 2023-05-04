@@ -1521,7 +1521,7 @@
                 if (uniswapV2PoolsDataObject.length == 1) {
                   for (const [blockNumber, poolsData] of Object.entries(uniswapV2PoolsDataObject[0].object)) {
                     for (const [poolAddress, poolData] of Object.entries(poolsData)) {
-                      const tradesDataObject = await db.cache.where("objectName").equals(poolAddress + '_uniswapv3trades').toArray();
+                      const tradesDataObject = await db.cache.where("objectName").equals(poolAddress + '_uniswapv2trades').toArray();
                       const trades = tradesDataObject.length == 1 ? tradesDataObject[0].object : {};
                       pools[poolAddress] = {
                         token0: poolData.token0,
