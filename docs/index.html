@@ -1186,7 +1186,7 @@
               }
               done = fromBlock >= context.confirmedBlockNumber;
             } while (!done && !this.sync.halt);
-            console.log("newBlocks: " + JSON.stringify(newBlocks, null, 2));
+            // console.log("newBlocks: " + JSON.stringify(newBlocks, null, 2));
             await this.getBlockTimestamps(context, Object.keys(newBlocks));
             await context.db.cache.put({ objectName: context.address + "_transfers", object: transfers }).then (function() {
             }).catch(function(error) {
@@ -1194,12 +1194,38 @@
             });
           },
           async getBlockTimestamps(context, newBlocks) {
-            console.log("getBlockTimestamps: " + context.address + " " + JSON.stringify(newBlocks.slice(0, 10)));
+            // console.log("getBlockTimestamps: " + context.address + " " + JSON.stringify(newBlocks.slice(0, 10)));
             const BATCHSIZE = 1000;
             for (let i = 0; i < newBlocks.length; i += BATCHSIZE) {
               const batch = newBlocks.slice(i, parseInt(i) + BATCHSIZE);
-              console.log("batch: " + JSON.stringify(batch));
+              // console.log("batch: " + JSON.stringify(batch));
+              const data = await fetch(BLOCKTIMESTAMPSUBGRAPHURL, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Accept': 'application/json',
+                },
+                body: JSON.stringify({
+                  query: BLOCKTIMESTAMPINQUERY,
+                  variables: { blockNumbers: batch.map(e => parseInt(e)) },
+                })
+              }).then(response => response.json())
+                // .then(data => processRegistrations(data.data.registrations))
+                .catch(function(e) {
+                  console.log("error: " + e);
+                });
+              // console.log("data: " + JSON.stringify(data, null, 2));
+              const timestamps = data.data && data.data.blocks || [];
+              for (const timestampItem of timestamps) {
+                console.log("timestampItem: " + JSON.stringify(timestampItem, null, 2));
+                Vue.set(this.blockTimestamps, timestampItem.number, timestampItem.timestamp);
+              }
             }
+            // console.log("blockTimestamps: " + JSON.stringify(this.blockTimestamps));
+            await context.db.cache.put({ objectName: "blockTimestamps", object: this.blockTimestamps }).then (function() {
+            }).catch(function(error) {
+              console.log("error: " + error);
+            });
           },
           async syncUniswapV2Pools(context) {
             console.log("syncUniswapV2Pools: " + context.address + " " + context.symbol);
@@ -1353,7 +1379,7 @@
                     if (!event.removed) {
                       const log = interface.parseLog(event);
                       // Swap (index_topic_1 address sender, uint256 amount0In, uint256 amount1In, uint256 amount0Out, uint256 amount1Out, index_topic_2 address to)
-                      const [sender, amount0In, amount1In, amount0Out, amount1Out, to] = log.args;
+                      const [sender, amount0In, amount1In, amount0Out, amount1Out, recipient] = log.args;
                       if (!(event.blockNumber in trades)) {
                         trades[event.blockNumber] = {};
                       }
@@ -1367,11 +1393,9 @@
                         newEvents++;
                         trades[event.blockNumber][event.transactionIndex][event.transactionHash][event.logIndex] = {
                           sender,
-                          amount0In: amount0In.toString(),
-                          amount1In: amount1In.toString(),
-                          amount0Out: amount0Out.toString(),
-                          amount1Out: amount1Out.toString(),
-                          to,
+                          recipient,
+                          amount0: amount0In.gt(0) ? amount0In.toString() : "-" + amount0Out.toString(),
+                          amount1: amount1In.gt(0) ? amount1In.toString() : "-" + amount1Out.toString(),
                         };
                       }
                     }
