@@ -517,6 +517,7 @@
 
           transfers: {},
           pools: {},
+          blockTimestamps: {},
           collections: {},
           tokens: [],
           ensMap: {},
@@ -1131,6 +1132,7 @@
             let fromBlock = startBlock;
             let count = 0;
             let newEvents = 0;
+            const newBlocks = {};
             do {
               if (batchSize > 1000 && parseInt(fromBlock) + batchSize > context.confirmedBlockNumber) {
                 batchSize = parseInt((context.confirmedBlockNumber - fromBlock) * 0.75);
@@ -1155,6 +1157,9 @@
                       from = ethers.utils.getAddress('0x' + event.data.substring(26, 66));
                       to = ethers.utils.getAddress('0x' + event.data.substring(90, 130));
                       tokens = ethers.BigNumber.from('0x' + event.data.substring(130, 193)).toString();
+                    }
+                    if (!(event.blockNumber in this.blockTimestamps) && !(event.blockNumber in newBlocks)) {
+                      newBlocks[event.blockNumber] = null;
                     }
                     if (!(event.blockNumber in transfers)) {
                       transfers[event.blockNumber] = {};
@@ -1181,10 +1186,20 @@
               }
               done = fromBlock >= context.confirmedBlockNumber;
             } while (!done && !this.sync.halt);
+            console.log("newBlocks: " + JSON.stringify(newBlocks, null, 2));
+            await this.getBlockTimestamps(context, Object.keys(newBlocks));
             await context.db.cache.put({ objectName: context.address + "_transfers", object: transfers }).then (function() {
             }).catch(function(error) {
               console.log("error: " + error);
             });
+          },
+          async getBlockTimestamps(context, newBlocks) {
+            console.log("getBlockTimestamps: " + context.address + " " + JSON.stringify(newBlocks.slice(0, 10)));
+            const BATCHSIZE = 1000;
+            for (let i = 0; i < newBlocks.length; i += BATCHSIZE) {
+              const batch = newBlocks.slice(i, parseInt(i) + BATCHSIZE);
+              console.log("batch: " + JSON.stringify(batch));
+            }
           },
           async syncUniswapV2Pools(context) {
             console.log("syncUniswapV2Pools: " + context.address + " " + context.symbol);
@@ -1211,12 +1226,12 @@
                 const logs = await context.provider.getLogs({ address: UNISWAPV2FACTORY, fromBlock, toBlock, topics });
                 for (const event of logs) {
                   if (!event.removed) {
-                    console.log("event: " + JSON.stringify(event, null, 2));
+                    // console.log("event: " + JSON.stringify(event, null, 2));
                     if (!(event.blockNumber in pools)) {
                       pools[event.blockNumber] = {};
                     }
                     const poolAddress = ethers.utils.getAddress('0x' + event.data.substring(26, 66));
-                    console.log("poolAddress: " + poolAddress);
+                    // console.log("poolAddress: " + poolAddress);
                     if (!(poolAddress in pools[event.blockNumber])) {
                       pools[event.blockNumber][poolAddress] = {
                         token0: ethers.utils.getAddress('0x' + event.topics[1].substring(26)),
@@ -1267,7 +1282,7 @@
                 const logs = await context.provider.getLogs({ address: UNISWAPV3FACTORY, fromBlock, toBlock, topics });
                 for (const event of logs) {
                   if (!event.removed) {
-                    console.log("event: " + JSON.stringify(event, null, 2));
+                    // console.log("event: " + JSON.stringify(event, null, 2));
                     if (!(event.blockNumber in pools)) {
                       pools[event.blockNumber] = {};
                     }
