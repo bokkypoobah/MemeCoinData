@@ -1234,10 +1234,10 @@
             this.sync.section = null;
             this.sync.halt = false;
             db0.close();
-            await this.loadNFTs();
+            await this.loadTransfers();
           },
-          async loadNFTs() {
-            console.log("loadNFTs");
+          async loadTransfers() {
+            console.log("loadTransfers");
             const db0 = new Dexie(this.db.name);
             db0.version(this.db.version).stores(this.db.schemaDefinition);
             const transfers = {};
@@ -1711,7 +1711,7 @@
             }
           }
           (async() => {
-            await this.loadNFTs();
+            await this.loadTransfers();
           })();
         },
       })
