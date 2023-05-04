@@ -244,6 +244,11 @@
                 -->
                 {{ parseInt(data.index) + ((settings.transfersTable.currentPage - 1) * settings.transfersTable.pageSize) + 1 }}
               </template>
+              <template #cell(timestamp)="data">
+                <b-link :href="'https://etherscan.io/tx/' + data.item.txHash" v-b-popover.hover.bottom="'View tx in etherscan.io'" target="_blank">
+                  {{ formatTimestamp(data.item.timestamp) }}
+                </b-link>
+              </template>
               <template #cell(token)="data">
                 <div class="d-flex flex-row">
                   <div>
@@ -566,7 +571,8 @@
           ],
           transfersFields: [
             { key: 'number', label: '#', sortable: false, thStyle: 'width: 5%;', tdClass: 'text-truncate' },
-            { key: 'blockNumber', label: 'Block Number', sortable: false, thStyle: 'width: 15%;', tdClass: 'text-truncate' },
+            // { key: 'blockNumber', label: 'Block Number', sortable: false, thStyle: 'width: 15%;', tdClass: 'text-truncate' },
+            { key: 'timestamp', label: 'When', sortable: false, thStyle: 'width: 15%;', tdClass: 'text-truncate' },
             { key: 'coin', label: 'Coin', sortable: false, thStyle: 'width: 20%;', tdClass: 'text-truncate' },
             { key: 'from', label: 'From', sortable: false, thStyle: 'width: 20%;', tdClass: 'text-truncate' },
             { key: 'to', label: 'To', sortable: false, thStyle: 'width: 20%;', tdClass: 'text-truncate' },
@@ -831,10 +837,11 @@
             // }
             const results = [];
             for (const [blockNumber, txIndexes] of Object.entries(this.transfers)) {
+              const timestamp = this.blockTimestamps[blockNumber] || null;
               for (const [txIndex, txHashes] of Object.entries(txIndexes)) {
                 for (const [txHash, logIndexes] of Object.entries(txHashes)) {
                   for (const [logIndex, txData] of Object.entries(logIndexes)) {
-                    results.push({ blockNumber, txIndex, txHash, logIndex, coin: txData.address, from: txData.from, to: txData.to, tokens: txData.tokens });
+                    results.push({ blockNumber, timestamp, txIndex, txHash, logIndex, coin: txData.address, from: txData.from, to: txData.to, tokens: txData.tokens });
                   }
                 }
               }
