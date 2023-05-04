@@ -1117,21 +1117,25 @@
           },
           async syncCoin(context) {
             console.log("syncCoin: " + context.address + " " + context.symbol);
-            // const startBlock = accountData && accountData.updated && accountData.updated.blockNumber && (parseInt(accountData.updated.blockNumber) - parameter.OVERLAPBLOCKS) || 0;
-            const startBlock = 17149228;
+            let startBlock = 17149228;
             const BATCHSIZE = 1000;
             let transfers = {};
             const transfersDataObject = await context.db.cache.where("objectName").equals(context.address).toArray();
             if (transfersDataObject.length == 1) {
               transfers = transfersDataObject[0].object;
             }
-            console.log("transfers BEFORE: " + JSON.stringify(transfers));
+            const blockNumbers = Object.keys(transfers).sort((a, b) => { return b - a });
+            if (blockNumbers.length > 0) {
+              startBlock = parseInt(blockNumbers[0]);
+              console.log("startBlock: " + startBlock);
+              console.log("confirmedBlockNumber: " + context.confirmedBlockNumber);
+            }
 
-            for (let startBatch = startBlock; startBatch < context.confirmedBlockNumber; startBatch += BATCHSIZE) {
-              const endBatch = (parseInt(startBatch) + BATCHSIZE < context.confirmedBlockNumber) ? (parseInt(startBatch) + BATCHSIZE) : context.confirmedBlockNumber;
-              console.log("batch: " + startBatch + " - " + endBatch);
+            for (let fromBlock = startBlock; fromBlock < context.confirmedBlockNumber; fromBlock += BATCHSIZE) {
+              const toBlock = (parseInt(fromBlock) + BATCHSIZE < context.confirmedBlockNumber) ? (parseInt(fromBlock) + BATCHSIZE) : context.confirmedBlockNumber;
+              console.log("batch: " + fromBlock + " - " + toBlock + " " + (toBlock - fromBlock));
               const transferTopics = [ '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef', null, null ];
-              const logs = await context.provider.getLogs({ address: context.address, fromBlock: startBatch, toBlock: endBatch, topics: transferTopics });
+              const logs = await context.provider.getLogs({ address: context.address, fromBlock, toBlock, topics: transferTopics });
               for (const event of logs) {
                 if (!event.removed) {
                   let from, to, tokens;
@@ -1189,12 +1193,12 @@
             const CONFIRMATIONS = 10;
             const confirmedBlockNumber = block && block.number && (block.number - CONFIRMATIONS) || null;
             console.log("confirmedBlockNumber: " + confirmedBlockNumber);
-            const db0 = new Dexie(this.db.name);
-            db0.version(this.db.version).stores(this.db.schemaDefinition);
-            for (const [coinAddress, coinInfo] of Object.entries(this.settings.coins)) {
+            const db = new Dexie(this.db.name);
+            db.version(this.db.version).stores(this.db.schemaDefinition);
+            for (const [address, coinInfo] of Object.entries(this.settings.coins)) {
               if (coinInfo.sync && !this.sync.halt) {
-                // console.log("Processing: " + coinAddress + " " + coinInfo.symbol + " " + coinInfo.name);
-                await this.syncCoin({ provider, confirmedBlockNumber, db: db0, address: coinAddress, symbol: coinInfo.symbol })
+                // console.log("Processing: " + address + " " + coinInfo.symbol + " " + coinInfo.name);
+                await this.syncCoin({ provider, confirmedBlockNumber, db, address: address, symbol: coinInfo.symbol })
               //   const accountInfo = this.settings.accounts[address] || {};
               //   this.sync.completed = 0;
               //   this.sync.total = null;
@@ -1227,7 +1231,7 @@
               //   } while (continuation != null && !this.sync.halt /*&& !state.sync.error */);
               //   if (!this.sync.halt) {
               //     console.log("tokens: " + JSON.stringify(tokens, null, 2));
-              //     await db0.cache.put({ objectName: address, object: tokens }).then (function() {
+              //     await db.cache.put({ objectName: address, object: tokens }).then (function() {
               //     }).catch(function(error) {
               //       console.log("error: " + error);
               //     });
@@ -1237,7 +1241,7 @@
             }
             this.sync.section = null;
             this.sync.halt = false;
-            db0.close();
+            db.close();
             await this.loadTransfers();
           },
           async loadTransfers() {
