@@ -1305,6 +1305,8 @@
             this.sync.total = null;
             this.sync.section = context.symbol + " UniswapV3Trades";
 
+            const interface = new ethers.utils.Interface(UNISWAPV3POOLABI);
+
             const poolsDataObject = await context.db.cache.where("objectName").equals(context.address + '_uniswapv3pools').toArray();
             const poolsData = poolsDataObject.length == 1 ? poolsDataObject[0].object : {};
             const pools = {};
@@ -1342,7 +1344,8 @@
                   const logs = await context.provider.getLogs({ address: poolAddress, fromBlock, toBlock, topics });
                   for (const event of logs) {
                     if (!event.removed) {
-                      console.log(JSON.stringify(event, null, 2));
+                      const log = interface.parseLog(event);
+                      const [sender, recipient, amount0, amount1, sqrtPriceX96, liquidity, tick] = log.args;
                       if (!(event.blockNumber in trades)) {
                         trades[event.blockNumber] = {};
                       }
@@ -1353,8 +1356,16 @@
                         trades[event.blockNumber][event.transactionIndex][event.transactionHash] = {};
                       }
                       if (!(event.logIndex in trades[event.blockNumber][event.transactionIndex][event.transactionHash])) {
-                        trades[event.blockNumber][event.transactionIndex][event.transactionHash][event.logIndex] = { abc: "from, to, tokens" };
                         newEvents++;
+                        trades[event.blockNumber][event.transactionIndex][event.transactionHash][event.logIndex] = {
+                          sender,
+                          recipient,
+                          amount0: amount0.toString(),
+                          amount1: amount1.toString(),
+                          // sqrtPriceX96: sqrtPriceX96.toString(),
+                          // liquidity: liquidity.toString(),
+                          // tick: tick.toString(),
+                        };
                       }
                     }
                     count++;
@@ -1369,39 +1380,11 @@
                 done = fromBlock >= context.confirmedBlockNumber;
               } while (!done && !this.sync.halt);
               console.log("trades: " + JSON.stringify(trades, null, 2));
+              await context.db.cache.put({ objectName: poolAddress + '_uniswapv3trades', object: trades }).then (function() {
+              }).catch(function(error) {
+                console.log("error: " + error);
+              });
             }
-
-
-            // const toBlock = context.confirmedBlockNumber;
-            // try {
-            //   const logs = await context.provider.getLogs({ address: UNISWAPV3FACTORY, fromBlock, toBlock, topics });
-            //   for (const event of logs) {
-            //     if (!event.removed) {
-            //       console.log("event: " + JSON.stringify(event, null, 2));
-            //       if (!(event.blockNumber in pools)) {
-            //         pools[event.blockNumber] = {};
-            //       }
-            //       const poolAddress = ethers.utils.getAddress('0x' + event.data.substring(90, 130));
-            //       if (!(poolAddress in pools[event.blockNumber])) {
-            //         pools[event.blockNumber][poolAddress] = {
-            //           token0: ethers.utils.getAddress('0x' + event.topics[1].substring(26)),
-            //           token1: ethers.utils.getAddress('0x' + event.topics[2].substring(26)),
-            //           fee: ethers.BigNumber.from(event.topics[3]).toString(),
-            //           tickSpacing: ethers.BigNumber.from('0x' + event.data.substring(2, 66)).toString(),
-            //           factory: event.address,
-            //           transactionHash: event.transactionHash,
-            //         };
-            //         newEvents++;
-            //       }
-            //     }
-            //     count++;
-            //   }
-            //   this.sync.completed = count;
-            //   console.log(moment().format("HH:mm:ss") + " Pool " + (topicsIndex == 0 ? ("*/" + context.symbol) : (context.symbol + "/*")) + " from: " + fromBlock + ", to: " + toBlock + ", range: " + (toBlock - fromBlock) + ", newEvents: " + newEvents);
-            //   fromBlock = toBlock;
-            // } catch (e) {
-            //   console.log(e);
-            // }
 
             // console.log("pools: " + JSON.stringify(pools, null, 2));
             // await context.db.cache.put({ objectName: context.address + '_uniswapv3pools', object: pools }).then (function() {
@@ -1420,13 +1403,13 @@
             db.version(this.db.version).stores(this.db.schemaDefinition);
             for (const [address, coinInfo] of Object.entries(this.settings.coins)) {
               if (coinInfo.sync && !this.sync.halt) {
-                if (true) {
+                // if (false) {
                   await this.syncCoinTransfers({ provider, confirmedBlockNumber, db, address, symbol: coinInfo.symbol });
                   await this.syncUniswapV2Pools({ provider, confirmedBlockNumber, db, address, symbol: coinInfo.symbol });
                   await this.syncUniswapV3Pools({ provider, confirmedBlockNumber, db, address, symbol: coinInfo.symbol });
-                } else {
+                // } else {
                   await this.syncUniswapV3Trades({ provider, confirmedBlockNumber, db, address, symbol: coinInfo.symbol });
-                }
+                // }
               }
             }
             this.sync.section = null;
