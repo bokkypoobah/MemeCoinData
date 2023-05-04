@@ -1299,6 +1299,72 @@
               console.log("error: " + error);
             });
           },
+          async syncUniswapV3Trades(context) {
+            console.log("syncUniswapV3Trades: " + context.address + " " + context.symbol);
+            this.sync.completed = 0;
+            this.sync.total = null;
+            this.sync.section = context.symbol + " UniswapV3Trades";
+
+            const poolsDataObject = await context.db.cache.where("objectName").equals(context.address + '_uniswapv3pools').toArray();
+            const poolsData = poolsDataObject.length == 1 ? poolsDataObject[0].object : {};
+            const pools = {};
+            for (const [blockNumber, poolsCreatedInBlock] of Object.entries(poolsData)) {
+              for (const [poolAddress, poolInfo] of Object.entries(poolsCreatedInBlock)) {
+                pools[poolAddress] = { token0: poolInfo.token0, token1: poolInfo.token1 };
+              }
+            }
+            const poolAddresses = Object.keys(pools);
+            console.log("poolAddresses: " + JSON.stringify(poolAddresses, null, 2));
+
+            const tradesDataObject = await context.db.cache.where("objectName").equals(context.address + '_uniswapv3trades').toArray();
+            const trades = tradesDataObject.length == 1 ? tradesDataObject[0].object : {};
+            const blockNumbers = Object.keys(trades).sort((a, b) => { return b - a });
+            const startBlock = blockNumbers.length > 0 ? parseInt(blockNumbers[0]) + 1: 0;
+            let count = 0;
+            let newEvents = 0;
+            // const coinAddressAs32Bytes = '0x000000000000000000000000' + context.address.substring(2, 42).toLowerCase();
+            // Swap (index_topic_1 address sender, index_topic_2 address recipient, int256 amount0, int256 amount1, uint160 sqrtPriceX96, uint128 liquidity, int24 tick)
+            const topics = [ '0xc42079f94a6350d7e6235f29174924f928cc2ac818eb64fed8004e115fbcca67', null, null ];
+
+            let done = false;
+            let fromBlock = startBlock;
+            const toBlock = context.confirmedBlockNumber;
+            try {
+            //   const logs = await context.provider.getLogs({ address: UNISWAPV3FACTORY, fromBlock, toBlock, topics });
+            //   for (const event of logs) {
+            //     if (!event.removed) {
+            //       console.log("event: " + JSON.stringify(event, null, 2));
+            //       if (!(event.blockNumber in pools)) {
+            //         pools[event.blockNumber] = {};
+            //       }
+            //       const poolAddress = ethers.utils.getAddress('0x' + event.data.substring(90, 130));
+            //       if (!(poolAddress in pools[event.blockNumber])) {
+            //         pools[event.blockNumber][poolAddress] = {
+            //           token0: ethers.utils.getAddress('0x' + event.topics[1].substring(26)),
+            //           token1: ethers.utils.getAddress('0x' + event.topics[2].substring(26)),
+            //           fee: ethers.BigNumber.from(event.topics[3]).toString(),
+            //           tickSpacing: ethers.BigNumber.from('0x' + event.data.substring(2, 66)).toString(),
+            //           factory: event.address,
+            //           transactionHash: event.transactionHash,
+            //         };
+            //         newEvents++;
+            //       }
+            //     }
+            //     count++;
+            //   }
+            //   this.sync.completed = count;
+            //   console.log(moment().format("HH:mm:ss") + " Pool " + (topicsIndex == 0 ? ("*/" + context.symbol) : (context.symbol + "/*")) + " from: " + fromBlock + ", to: " + toBlock + ", range: " + (toBlock - fromBlock) + ", newEvents: " + newEvents);
+            //   fromBlock = toBlock;
+            } catch (e) {
+              console.log(e);
+            }
+
+            // console.log("pools: " + JSON.stringify(pools, null, 2));
+            // await context.db.cache.put({ objectName: context.address + '_uniswapv3pools', object: pools }).then (function() {
+            // }).catch(function(error) {
+            //   console.log("error: " + error);
+            // });
+          },
           async syncCoins() {
             console.log("syncCoins");
             const provider = new ethers.providers.Web3Provider(window.ethereum);
@@ -1313,6 +1379,7 @@
                 await this.syncCoinTransfers({ provider, confirmedBlockNumber, db, address: address, symbol: coinInfo.symbol });
                 await this.syncUniswapV2Pools({ provider, confirmedBlockNumber, db, address: address, symbol: coinInfo.symbol });
                 await this.syncUniswapV3Pools({ provider, confirmedBlockNumber, db, address: address, symbol: coinInfo.symbol });
+                await this.syncUniswapV3Trades({ provider, confirmedBlockNumber, db, address: address, symbol: coinInfo.symbol });
               }
             }
             this.sync.section = null;
