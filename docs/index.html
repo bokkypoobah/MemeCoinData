@@ -1125,10 +1125,10 @@
             const transfersDataObject = await context.db.cache.where("objectName").equals(context.address).toArray();
             const transfers = transfersDataObject.length == 1 ? transfersDataObject[0].object : {};
             const blockNumbers = Object.keys(transfers).sort((a, b) => { return b - a });
-            if (false && blockNumbers.length > 0) {
+            if (blockNumbers.length > 0) {
               startBlock = parseInt(blockNumbers[0]);
-              console.log("startBlock: " + startBlock);
-              console.log("confirmedBlockNumber: " + context.confirmedBlockNumber);
+              // console.log("startBlock: " + startBlock);
+              // console.log("confirmedBlockNumber: " + context.confirmedBlockNumber);
             }
             let batchSize = 100000000;
             const BATCHREDUCTIONFACTOR = 0.50;
