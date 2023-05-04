@@ -1241,14 +1241,14 @@
             await this.loadTransfers();
           },
           async loadTransfers() {
-            const db0 = new Dexie(this.db.name);
-            db0.version(this.db.version).stores(this.db.schemaDefinition);
+            const db = new Dexie(this.db.name);
+            db.version(this.db.version).stores(this.db.schemaDefinition);
             const transfers = {};
             let count = 0;
             for (const [coinAddress, coinInfo] of Object.entries(this.settings.coins)) {
               if (coinInfo.include) {
                 console.log("loadTransfers: " + coinAddress + " " + coinInfo.symbol + " " + coinInfo.name);
-                const transfersDataObject = await db0.cache.where("objectName").equals(coinAddress).toArray();
+                const transfersDataObject = await db.cache.where("objectName").equals(coinAddress).toArray();
                 if (transfersDataObject.length == 1) {
                   for (const [blockNumber, txIndexes] of Object.entries(transfersDataObject[0].object)) {
                     if (!(blockNumber in transfers)) {
@@ -1275,7 +1275,7 @@
                 }
               }
             }
-            db0.close();
+            db.close();
             console.log("Loaded " + count + " events");
             // console.log(JSON.stringify(transfers, null, 2));
             this.transfers = transfers;
@@ -1468,8 +1468,8 @@
               const timestamp = block.timestamp;
               const ENSOWNERBATCHSIZE = 100; // 500 fails occassionally
 
-              const db0 = new Dexie(this.db.name);
-              db0.version(this.db.version).stores(this.db.schemaDefinition);
+              const db = new Dexie(this.db.name);
+              db.version(this.db.version).stores(this.db.schemaDefinition);
 
               if (action == "retrieveMainCollection") {
                 console.log("retrieveMainCollection");
@@ -1535,18 +1535,18 @@
                   this.sync.completed = parseInt(this.sync.completed) + batch.length;
                 }
                 this.ensMap = ensMap;
-                await db0.cache.put({ objectName: 'ensMap', object: ensMap }).then (function() {
+                await db.cache.put({ objectName: 'ensMap', object: ensMap }).then (function() {
                 }).catch(function(error) {
                   console.log("error: " + error);
                 });
                 this.mainToken.tokens = mainTokens;
                 this.mainToken.owners = mainOwners;
-                await db0.cache.put({ objectName: 'mainToken', object: this.mainToken }).then (function() {
+                await db.cache.put({ objectName: 'mainToken', object: this.mainToken }).then (function() {
                 }).catch(function(error) {
                   console.log("error: " + error);
                 });
                 this.secondaryData = {};
-                await db0.cache.put({ objectName: 'secondaryData', object: this.secondaryData }).then (function() {
+                await db.cache.put({ objectName: 'secondaryData', object: this.secondaryData }).then (function() {
                 }).catch(function(error) {
                   console.log("error: " + error);
                 });
@@ -1611,7 +1611,7 @@
                   Vue.set(this.collections[contract], 'updated', timestamp);
                   Vue.set(this.collections[contract], 'blockNumber', blockNumber);
                 }
-                await db0.cache.put({ objectName: 'collections', object: this.collections }).then (function() {
+                await db.cache.put({ objectName: 'collections', object: this.collections }).then (function() {
                 }).catch(function(error) {
                   console.log("error: " + error);
                 });
@@ -1679,13 +1679,13 @@
                     break;
                   }
                 }
-                await db0.cache.put({ objectName: 'secondaryData', object: this.secondaryData }).then (function() {
+                await db.cache.put({ objectName: 'secondaryData', object: this.secondaryData }).then (function() {
                 }).catch(function(error) {
                   console.log("error: " + error);
                 });
               }
 
-              db0.close();
+              db.close();
               this.sync.section = null;
               this.sync.halt = false;
             }
