@@ -1119,18 +1119,14 @@
             console.log("syncCoin: " + context.address + " " + context.symbol);
             let startBlock = 17149228;
             const BATCHSIZE = 1000;
-            let transfers = {};
             const transfersDataObject = await context.db.cache.where("objectName").equals(context.address).toArray();
-            if (transfersDataObject.length == 1) {
-              transfers = transfersDataObject[0].object;
-            }
+            const transfers = transfersDataObject.length == 1 ? transfersDataObject[0].object : {};
             const blockNumbers = Object.keys(transfers).sort((a, b) => { return b - a });
             if (blockNumbers.length > 0) {
               startBlock = parseInt(blockNumbers[0]);
               console.log("startBlock: " + startBlock);
               console.log("confirmedBlockNumber: " + context.confirmedBlockNumber);
             }
-
             for (let fromBlock = startBlock; fromBlock < context.confirmedBlockNumber; fromBlock += BATCHSIZE) {
               const toBlock = (parseInt(fromBlock) + BATCHSIZE < context.confirmedBlockNumber) ? (parseInt(fromBlock) + BATCHSIZE) : context.confirmedBlockNumber;
               console.log("batch: " + fromBlock + " - " + toBlock + " " + (toBlock - fromBlock));
