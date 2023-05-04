@@ -52,8 +52,8 @@
           </b-navbar-brand>
           <b-navbar-nav class="ml-auto">
             <b-nav-item size="sm" @click="settings.tabIndex = 0; saveSettings()" :active="settings.tabIndex == 0" active-class="active" v-b-popover.hover="'View/sync Coin Data'">Coin Data</b-nav-item>
-            <b-nav-item size="sm" @click="settings.tabIndex = 1; saveSettings()" :active="settings.tabIndex == 1" active-class="active" v-b-popover.hover="'View/edit coin contracts'">Coins</b-nav-item>
-            <b-nav-item size="sm" @click="settings.tabIndex = 2; saveSettings()" :active="settings.tabIndex == 2" active-class="active" v-b-popover.hover="'View/edit accounts'">Accounts</b-nav-item>
+            <b-nav-item size="sm" @click="settings.tabIndex = 1; saveSettings()" :active="settings.tabIndex == 1" active-class="active" v-b-popover.hover="'View/edit ERC-20 coins'">Coins</b-nav-item>
+            <b-nav-item size="sm" @click="settings.tabIndex = 2; saveSettings()" :active="settings.tabIndex == 2" active-class="active" v-b-popover.hover="'View/edit my accounts'">Accounts</b-nav-item>
             <b-avatar v-if="coinbase && coinbase != ensOrAddress(coinbase)" rounded variant="light" size="2.0rem" :src="'https://metadata.ens.domains/mainnet/avatar/' + ensOrAddress(coinbase)" v-b-popover.hover="'Your ENS avatar if set'"></b-avatar>
             <b-button size="sm" variant="outline-primary" class="ml-1" @click="processIt('connect')" v-b-popover.hover.bottom="'Click to update wallet'">{{ coinbase ? ensOrAddress(coinbase, 10) : 'Connect' }}</b-button>
           </b-navbar-nav>
@@ -235,7 +235,7 @@
 
             </div>
 
-            <b-table small fixed striped responsive hover :fields="transfersFields" :items="pagedFilteredSortedTransfers" show-empty empty-html="Click [+] above to add new collections" head-variant="light" class="mx-0 my-1">
+            <b-table small fixed striped responsive hover :fields="transfersFields" :items="pagedFilteredSortedTransfers" show-empty empty-html="Add your coins in the [Coins] menu, then click [Sync] above" head-variant="light" class="mx-0 my-1">
               <template #cell(number)="data">
                 <!--
                 <b-form-checkbox size="sm" :checked="selectedCollections[data.item.contract] ? 1 : 0" value="1" @change="toggleSelectedCollections([data.item])">
@@ -302,12 +302,12 @@
               </div>
             </div>
 
-            <b-table small fixed striped responsive hover :fields="coinsFields" :items="pagedFilteredSortedCoins" show-empty empty-html="Click [+] above to your list of ERC-20 token contracts" head-variant="light" class="mx-0 my-1">
+            <b-table small fixed striped responsive hover :fields="coinsFields" :items="pagedFilteredSortedCoins" show-empty empty-html="Click [+] above to add a new ERC-20 token contract. Currently only TURBO supported" head-variant="light" class="mx-0 my-1">
               <template #head(address)="data">
-                ERC-20 Address <b-button v-b-modal.new-coin-modal-prevent-closing variant="link" v-b-popover.hover.top="'Add new account'"><b-icon-plus-square shift-v="+1" font-scale="0.8"></b-icon-plus-square></b-button>
-                <b-modal id="new-coin-modal-prevent-closing" ref="modal" title="New ERC-20 Address" @show="newCoinAddressResetModal" @hidden="newCoinAddressResetModal" @ok="newCoinAddressHandleOk">
+                ERC-20 Coin Address <b-button v-b-modal.new-coin-modal-prevent-closing variant="link" v-b-popover.hover.top="'Add new coin'"><b-icon-plus-square shift-v="+1" font-scale="0.8"></b-icon-plus-square></b-button>
+                <b-modal id="new-coin-modal-prevent-closing" ref="modal" title="New ERC-20 Coin Address" @show="newCoinAddressResetModal" @hidden="newCoinAddressResetModal" @ok="newCoinAddressHandleOk">
                   <form ref="coinForm" @submit.stop.prevent="newCoinAddressHandleSubmit">
-                    <b-form-group label="Address" label-for="name-input" :state="newCoinAddressState" description="Pre-filled with TURBO for initial testing" invalid-feedback="Please enter a valid Ethereum address">
+                    <b-form-group label="Address" label-for="name-input" :state="newCoinAddressState" description="Pre-filled with TURBO for initial testing" invalid-feedback="Please enter a valid Ethereum ERC-20 address">
                       <b-form-input id="name-input" v-model="newCoinAddress" :state="newCoinAddressState" required placeholder="0x1234..."></b-form-input>
                     </b-form-group>
                   </form>
