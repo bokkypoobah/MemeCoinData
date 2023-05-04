@@ -1125,11 +1125,12 @@
             console.log("confirmedBlockNumber: " + confirmedBlockNumber);
             const startBlock = 17149228;
             const BATCHSIZE = 1000;
+            const transfers = {};
             for (let startBatch = startBlock; startBatch < confirmedBlockNumber; startBatch += BATCHSIZE) {
               const endBatch = (parseInt(startBatch) + BATCHSIZE < confirmedBlockNumber) ? (parseInt(startBatch) + BATCHSIZE) : confirmedBlockNumber;
               console.log("batch: " + startBatch + " - " + endBatch);
-              const topics = [ '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef', null, null ];
-              const logs = await provider.getLogs({ address: coinInfo.address, fromBlock: startBatch, toBlock: endBatch, topics });
+              const transferTopics = [ '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef', null, null ];
+              const logs = await provider.getLogs({ address: coinInfo.address, fromBlock: startBatch, toBlock: endBatch, topics: transferTopics });
               for (const event of logs) {
                 if (!event.removed) {
                   let from, to, tokens;
@@ -1158,17 +1159,17 @@
                     to,
                     tokens,
                   }
-                  if (!(record.blockNumber in this.transfers)) {
-                    Vue.set(this.transfers, record.blockNumber, {});
+                  if (!(record.blockNumber in transfers)) {
+                    Vue.set(transfers, record.blockNumber, {});
                   }
-                  if (!(record.transactionIndex in this.transfers[record.blockNumber])) {
-                    Vue.set(this.transfers[record.blockNumber], record.transactionIndex, {});
+                  if (!(record.transactionIndex in transfers[record.blockNumber])) {
+                    Vue.set(transfers[record.blockNumber], record.transactionIndex, {});
                   }
-                  if (!(record.transactionHash in this.transfers[record.blockNumber][record.transactionIndex])) {
-                    Vue.set(this.transfers[record.blockNumber][record.transactionIndex], record.transactionHash, {});
+                  if (!(record.transactionHash in transfers[record.blockNumber][record.transactionIndex])) {
+                    Vue.set(transfers[record.blockNumber][record.transactionIndex], record.transactionHash, {});
                   }
-                  if (!(record.logIndex in this.transfers[record.blockNumber][record.transactionIndex][record.transactionHash])) {
-                    Vue.set(this.transfers[record.blockNumber][record.transactionIndex][record.transactionHash], record.logIndex, {
+                  if (!(record.logIndex in transfers[record.blockNumber][record.transactionIndex][record.transactionHash])) {
+                    Vue.set(transfers[record.blockNumber][record.transactionIndex][record.transactionHash], record.logIndex, {
                       from: record.from,
                       to: record.to,
                       tokens: record.tokens,
@@ -1177,8 +1178,8 @@
                 }
               }
             }
-            console.log("this.transfers: " + JSON.stringify(this.transfers, null, 2));
-            await db.cache.put({ objectName: coinInfo.address, object: this.transfers }).then (function() {
+            console.log("transfers: " + JSON.stringify(transfers, null, 2));
+            await db.cache.put({ objectName: coinInfo.address, object: transfers }).then (function() {
             }).catch(function(error) {
               console.log("error: " + error);
             });
