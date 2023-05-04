@@ -1122,25 +1122,24 @@
             const transfersDataObject = await context.db.cache.where("objectName").equals(context.address).toArray();
             const transfers = transfersDataObject.length == 1 ? transfersDataObject[0].object : {};
             const blockNumbers = Object.keys(transfers).sort((a, b) => { return b - a });
-            if (blockNumbers.length > 0) {
+            if (false && blockNumbers.length > 0) {
               startBlock = parseInt(blockNumbers[0]);
               console.log("startBlock: " + startBlock);
               console.log("confirmedBlockNumber: " + context.confirmedBlockNumber);
             }
-            let batchSize = 1000000;
-            const batchReductionFactor = 0.75;
+            let batchSize = 100000000;
+            const BATCHREDUCTIONFACTOR = 0.50;
             let done = false;
             let fromBlock = startBlock;
             do {
               if (parseInt(fromBlock) + batchSize > context.confirmedBlockNumber) {
-                batchSize = context.confirmedBlockNumber - fromBlock;
+                batchSize = parseInt((context.confirmedBlockNumber - fromBlock) * 0.75);
               }
               let toBlock = (parseInt(fromBlock) + batchSize < context.confirmedBlockNumber) ? (parseInt(fromBlock) + batchSize) : context.confirmedBlockNumber;
-              console.log("from: " + fromBlock + ", to: " + toBlock + ", range: " + (toBlock - fromBlock) + ", batchSize: " + batchSize);
+              console.log(moment().format("HH:mm:ss") + " from: " + fromBlock + ", to: " + toBlock + ", range: " + (toBlock - fromBlock) + ", batchSize: " + batchSize);
               const transferTopics = [ '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef', null, null ];
               try {
                 const logs = await context.provider.getLogs({ address: context.address, fromBlock, toBlock, topics: transferTopics });
-
                 for (const event of logs) {
                   if (!event.removed) {
                     let from, to, tokens;
@@ -1157,39 +1156,24 @@
                       to = ethers.utils.getAddress('0x' + event.data.substring(90, 130));
                       tokens = ethers.BigNumber.from('0x' + event.data.substring(130, 193)).toString();
                     }
-                    const record = {
-                      blockNumber: event.blockNumber,
-                      transactionIndex: event.transactionIndex,
-                      address: event.address,
-                      transactionHash: event.transactionHash,
-                      logIndex: event.logIndex,
-                      from,
-                      to,
-                      tokens,
+                    if (!(event.blockNumber in transfers)) {
+                      Vue.set(transfers, event.blockNumber, {});
                     }
-                    if (!(record.blockNumber in transfers)) {
-                      Vue.set(transfers, record.blockNumber, {});
+                    if (!(event.transactionIndex in transfers[event.blockNumber])) {
+                      Vue.set(transfers[event.blockNumber], event.transactionIndex, {});
                     }
-                    if (!(record.transactionIndex in transfers[record.blockNumber])) {
-                      Vue.set(transfers[record.blockNumber], record.transactionIndex, {});
+                    if (!(event.transactionHash in transfers[event.blockNumber][event.transactionIndex])) {
+                      Vue.set(transfers[event.blockNumber][event.transactionIndex], event.transactionHash, {});
                     }
-                    if (!(record.transactionHash in transfers[record.blockNumber][record.transactionIndex])) {
-                      Vue.set(transfers[record.blockNumber][record.transactionIndex], record.transactionHash, {});
-                    }
-                    if (!(record.logIndex in transfers[record.blockNumber][record.transactionIndex][record.transactionHash])) {
-                      Vue.set(transfers[record.blockNumber][record.transactionIndex][record.transactionHash], record.logIndex, {
-                        from: record.from,
-                        to: record.to,
-                        tokens: record.tokens,
-                      });
+                    if (!(event.logIndex in transfers[event.blockNumber][event.transactionIndex][event.transactionHash])) {
+                      Vue.set(transfers[event.blockNumber][event.transactionIndex][event.transactionHash], event.logIndex, { from, to, tokens });
                     }
                   }
                 }
-
                 fromBlock = toBlock;
               } catch (e) {
                 console.log(e);
-                batchSize = parseInt(batchSize * batchReductionFactor);
+                batchSize = parseInt(batchSize * BATCHREDUCTIONFACTOR);
               }
               done = fromBlock >= context.confirmedBlockNumber;
             } while (!done);
