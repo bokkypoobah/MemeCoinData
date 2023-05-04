@@ -1344,7 +1344,17 @@
                     if (!event.removed) {
                       console.log(JSON.stringify(event, null, 2));
                       if (!(event.blockNumber in trades)) {
-                        trades[event.blockNumber] = { abc: "def" };
+                        trades[event.blockNumber] = {};
+                      }
+                      if (!(event.transactionIndex in trades[event.blockNumber])) {
+                        trades[event.blockNumber][event.transactionIndex] = {};
+                      }
+                      if (!(event.transactionHash in trades[event.blockNumber][event.transactionIndex])) {
+                        trades[event.blockNumber][event.transactionIndex][event.transactionHash] = {};
+                      }
+                      if (!(event.logIndex in trades[event.blockNumber][event.transactionIndex][event.transactionHash])) {
+                        trades[event.blockNumber][event.transactionIndex][event.transactionHash][event.logIndex] = { abc: "from, to, tokens" };
+                        newEvents++;
                       }
                     }
                     count++;
@@ -1410,10 +1420,13 @@
             db.version(this.db.version).stores(this.db.schemaDefinition);
             for (const [address, coinInfo] of Object.entries(this.settings.coins)) {
               if (coinInfo.sync && !this.sync.halt) {
-                await this.syncCoinTransfers({ provider, confirmedBlockNumber, db, address: address, symbol: coinInfo.symbol });
-                await this.syncUniswapV2Pools({ provider, confirmedBlockNumber, db, address: address, symbol: coinInfo.symbol });
-                await this.syncUniswapV3Pools({ provider, confirmedBlockNumber, db, address: address, symbol: coinInfo.symbol });
-                // await this.syncUniswapV3Trades({ provider, confirmedBlockNumber, db, address: address, symbol: coinInfo.symbol });
+                if (true) {
+                  await this.syncCoinTransfers({ provider, confirmedBlockNumber, db, address, symbol: coinInfo.symbol });
+                  await this.syncUniswapV2Pools({ provider, confirmedBlockNumber, db, address, symbol: coinInfo.symbol });
+                  await this.syncUniswapV3Pools({ provider, confirmedBlockNumber, db, address, symbol: coinInfo.symbol });
+                } else {
+                  await this.syncUniswapV3Trades({ provider, confirmedBlockNumber, db, address, symbol: coinInfo.symbol });
+                }
               }
             }
             this.sync.section = null;
