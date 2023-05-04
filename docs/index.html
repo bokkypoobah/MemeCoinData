@@ -1455,12 +1455,15 @@
                 if (uniswapV2PoolsDataObject.length == 1) {
                   for (const [blockNumber, poolsData] of Object.entries(uniswapV2PoolsDataObject[0].object)) {
                     for (const [poolAddress, poolData] of Object.entries(poolsData)) {
+                      const tradesDataObject = await db.cache.where("objectName").equals(poolAddress + '_uniswapv3trades').toArray();
+                      const trades = tradesDataObject.length == 1 ? tradesDataObject[0].object : {};
                       pools[poolAddress] = {
                         token0: poolData.token0,
                         token1: poolData.token1,
                         transactionHash: poolData.transactionHash,
                         blockNumber,
                         type: "UniswapV2Pool",
+                        trades,
                       };
                     }
                   }
@@ -1469,6 +1472,8 @@
                 if (uniswapV3PoolsDataObject.length == 1) {
                   for (const [blockNumber, poolsData] of Object.entries(uniswapV3PoolsDataObject[0].object)) {
                     for (const [poolAddress, poolData] of Object.entries(poolsData)) {
+                      const tradesDataObject = await db.cache.where("objectName").equals(poolAddress + '_uniswapv3trades').toArray();
+                      const trades = tradesDataObject.length == 1 ? tradesDataObject[0].object : {};
                       pools[poolAddress] = {
                         token0: poolData.token0,
                         token1: poolData.token1,
@@ -1477,6 +1482,7 @@
                         transactionHash: poolData.transactionHash,
                         blockNumber,
                         type: "UniswapV3Pool",
+                        trades,
                       };
                     }
                   }
@@ -1486,7 +1492,7 @@
             db.close();
             console.log("Loaded " + count + " events");
             console.log("Loaded " + Object.keys(pools).length + " Uniswap V2 & V3 pools");
-            // console.log(JSON.stringify(pools, null, 2));
+            console.log(JSON.stringify(pools, null, 2));
             this.transfers = transfers;
             this.pools = pools;
           },
