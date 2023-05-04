@@ -1117,6 +1117,34 @@
             }
             this.saveSettings();
           },
+          async getBlockTimestamps(context, newBlocks) {
+            const BATCHSIZE = 1000;
+            for (let i = 0; i < newBlocks.length; i += BATCHSIZE) {
+              const batch = newBlocks.slice(i, parseInt(i) + BATCHSIZE);
+              const data = await fetch(BLOCKTIMESTAMPSUBGRAPHURL, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Accept': 'application/json',
+                },
+                body: JSON.stringify({
+                  query: BLOCKTIMESTAMPINQUERY,
+                  variables: { blockNumbers: batch.map(e => parseInt(e)) },
+                })
+              }).then(response => response.json())
+                .catch(function(e) {
+                  console.log("error: " + e);
+                });
+              const timestamps = data.data && data.data.blocks || [];
+              for (const timestampItem of timestamps) {
+                Vue.set(this.blockTimestamps, timestampItem.number, timestampItem.timestamp);
+              }
+            }
+            await context.db.cache.put({ objectName: "blockTimestamps", object: this.blockTimestamps }).then (function() {
+            }).catch(function(error) {
+              console.log("error: " + error);
+            });
+          },
           async syncCoinTransfers(context) {
             console.log("syncCoinTransfers: " + context.address + " " + context.symbol);
             this.sync.completed = 0;
@@ -1193,40 +1221,6 @@
               console.log("error: " + error);
             });
           },
-          async getBlockTimestamps(context, newBlocks) {
-            // console.log("getBlockTimestamps: " + context.address + " " + JSON.stringify(newBlocks.slice(0, 10)));
-            const BATCHSIZE = 1000;
-            for (let i = 0; i < newBlocks.length; i += BATCHSIZE) {
-              const batch = newBlocks.slice(i, parseInt(i) + BATCHSIZE);
-              // console.log("batch: " + JSON.stringify(batch));
-              const data = await fetch(BLOCKTIMESTAMPSUBGRAPHURL, {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                  'Accept': 'application/json',
-                },
-                body: JSON.stringify({
-                  query: BLOCKTIMESTAMPINQUERY,
-                  variables: { blockNumbers: batch.map(e => parseInt(e)) },
-                })
-              }).then(response => response.json())
-                // .then(data => processRegistrations(data.data.registrations))
-                .catch(function(e) {
-                  console.log("error: " + e);
-                });
-              // console.log("data: " + JSON.stringify(data, null, 2));
-              const timestamps = data.data && data.data.blocks || [];
-              for (const timestampItem of timestamps) {
-                console.log("timestampItem: " + JSON.stringify(timestampItem, null, 2));
-                Vue.set(this.blockTimestamps, timestampItem.number, timestampItem.timestamp);
-              }
-            }
-            // console.log("blockTimestamps: " + JSON.stringify(this.blockTimestamps));
-            await context.db.cache.put({ objectName: "blockTimestamps", object: this.blockTimestamps }).then (function() {
-            }).catch(function(error) {
-              console.log("error: " + error);
-            });
-          },
           async syncUniswapV2Pools(context) {
             console.log("syncUniswapV2Pools: " + context.address + " " + context.symbol);
             this.sync.completed = 0;
@@ -1244,6 +1238,7 @@
               [ '0x0d3648bd0f6ba80134a33ba9275ac585d9d315f0ad8355cddefde31afa28d0e9', null, coinAddressAs32Bytes ],
               [ '0x0d3648bd0f6ba80134a33ba9275ac585d9d315f0ad8355cddefde31afa28d0e9', coinAddressAs32Bytes, null ],
             ];
+            const newBlocks = {};
             for (const [topicsIndex, topics] of topicsList.entries()) {
               let done = false;
               let fromBlock = startBlock;
@@ -1253,6 +1248,9 @@
                 for (const event of logs) {
                   if (!event.removed) {
                     // console.log("event: " + JSON.stringify(event, null, 2));
+                    if (!(event.blockNumber in this.blockTimestamps) && !(event.blockNumber in newBlocks)) {
+                      newBlocks[event.blockNumber] = null;
+                    }
                     if (!(event.blockNumber in pools)) {
                       pools[event.blockNumber] = {};
                     }
@@ -1278,6 +1276,7 @@
               }
             }
             // console.log("pools: " + JSON.stringify(pools, null, 2));
+            await this.getBlockTimestamps(context, Object.keys(newBlocks));
             await context.db.cache.put({ objectName: context.address + '_uniswapv2pools', object: pools }).then (function() {
             }).catch(function(error) {
               console.log("error: " + error);
@@ -1300,6 +1299,7 @@
               [ '0x783cca1c0412dd0d695e784568c96da2e9c22ff989357a2e8b1d9b2b4e6b7118', null, coinAddressAs32Bytes ],
               [ '0x783cca1c0412dd0d695e784568c96da2e9c22ff989357a2e8b1d9b2b4e6b7118', coinAddressAs32Bytes, null ],
             ];
+            const newBlocks = {};
             for (const [topicsIndex, topics] of topicsList.entries()) {
               let done = false;
               let fromBlock = startBlock;
@@ -1309,6 +1309,9 @@
                 for (const event of logs) {
                   if (!event.removed) {
                     // console.log("event: " + JSON.stringify(event, null, 2));
+                    if (!(event.blockNumber in this.blockTimestamps) && !(event.blockNumber in newBlocks)) {
+                      newBlocks[event.blockNumber] = null;
+                    }
                     if (!(event.blockNumber in pools)) {
                       pools[event.blockNumber] = {};
                     }
@@ -1335,6 +1338,7 @@
               }
             }
             // console.log("pools: " + JSON.stringify(pools, null, 2));
+            await this.getBlockTimestamps(context, Object.keys(newBlocks));
             await context.db.cache.put({ objectName: context.address + '_uniswapv3pools', object: pools }).then (function() {
             }).catch(function(error) {
               console.log("error: " + error);
@@ -1356,6 +1360,7 @@
             }
             // Swap (index_topic_1 address sender, uint256 amount0In, uint256 amount1In, uint256 amount0Out, uint256 amount1Out, index_topic_2 address to)
             const topics = [ '0xd78ad95fa46c994b6551d0da85fc275fe613ce37657fb8d5e3d130840159d822', null, null ];
+            const newBlocks = {};
             for (const [poolAddress, poolInfo] of Object.entries(pools)) {
               const tradesDataObject = await context.db.cache.where("objectName").equals(poolAddress + '_uniswapv2trades').toArray();
               const trades = tradesDataObject.length == 1 ? tradesDataObject[0].object : {};
@@ -1380,6 +1385,9 @@
                       const log = interface.parseLog(event);
                       // Swap (index_topic_1 address sender, uint256 amount0In, uint256 amount1In, uint256 amount0Out, uint256 amount1Out, index_topic_2 address to)
                       const [sender, amount0In, amount1In, amount0Out, amount1Out, recipient] = log.args;
+                      if (!(event.blockNumber in this.blockTimestamps) && !(event.blockNumber in newBlocks)) {
+                        newBlocks[event.blockNumber] = null;
+                      }
                       if (!(event.blockNumber in trades)) {
                         trades[event.blockNumber] = {};
                       }
@@ -1410,7 +1418,8 @@
                 }
                 done = fromBlock >= context.confirmedBlockNumber;
               } while (!done && !this.sync.halt);
-              console.log("trades: " + JSON.stringify(trades, null, 2));
+              // console.log("trades: " + JSON.stringify(trades, null, 2));
+              await this.getBlockTimestamps(context, Object.keys(newBlocks));
               await context.db.cache.put({ objectName: poolAddress + '_uniswapv2trades', object: trades }).then (function() {
               }).catch(function(error) {
                 console.log("error: " + error);
@@ -1433,6 +1442,7 @@
             }
             // Swap (index_topic_1 address sender, index_topic_2 address recipient, int256 amount0, int256 amount1, uint160 sqrtPriceX96, uint128 liquidity, int24 tick)
             const topics = [ '0xc42079f94a6350d7e6235f29174924f928cc2ac818eb64fed8004e115fbcca67', null, null ];
+            const newBlocks = {};
             for (const [poolAddress, poolInfo] of Object.entries(pools)) {
               const tradesDataObject = await context.db.cache.where("objectName").equals(poolAddress + '_uniswapv3trades').toArray();
               const trades = tradesDataObject.length == 1 ? tradesDataObject[0].object : {};
@@ -1456,6 +1466,9 @@
                     if (!event.removed) {
                       const log = interface.parseLog(event);
                       const [sender, recipient, amount0, amount1, sqrtPriceX96, liquidity, tick] = log.args;
+                      if (!(event.blockNumber in this.blockTimestamps) && !(event.blockNumber in newBlocks)) {
+                        newBlocks[event.blockNumber] = null;
+                      }
                       if (!(event.blockNumber in trades)) {
                         trades[event.blockNumber] = {};
                       }
@@ -1489,7 +1502,8 @@
                 }
                 done = fromBlock >= context.confirmedBlockNumber;
               } while (!done && !this.sync.halt);
-              console.log("trades: " + JSON.stringify(trades, null, 2));
+              // console.log("trades: " + JSON.stringify(trades, null, 2));
+              await this.getBlockTimestamps(context, Object.keys(newBlocks));
               await context.db.cache.put({ objectName: poolAddress + '_uniswapv3trades', object: trades }).then (function() {
               }).catch(function(error) {
                 console.log("error: " + error);
@@ -2035,6 +2049,14 @@
             }
           }
           (async() => {
+            const db0 = new Dexie(this.db.name);
+            db0.version(this.db.version).stores(this.db.schemaDefinition);
+            const dataItems = await db0.cache.where("objectName").equals('blockTimestamps').toArray();
+            if (dataItems.length == 1) {
+              this.blockTimestamps = dataItems[0].object;
+              // console.log("blockTimestamps: " + JSON.stringify(this.blockTimestamps, null, 2));
+            }
+            db0.close();
             await this.loadCurrentData();
           })();
         },
