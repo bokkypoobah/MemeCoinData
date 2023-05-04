@@ -1115,8 +1115,8 @@
             }
             this.saveSettings();
           },
-          async syncCoin(context) {
-            console.log("syncCoin: " + context.address + " " + context.symbol);
+          async syncCoinTransfers(context) {
+            console.log("syncCoinTransfers: " + context.address + " " + context.symbol);
             this.sync.completed = 0;
             this.sync.total = null;
             this.sync.section = context.symbol;
@@ -1135,13 +1135,13 @@
             let done = false;
             let fromBlock = startBlock;
             let count = 0;
+            let newEvents = 0;
             do {
               if (batchSize > 1000 && parseInt(fromBlock) + batchSize > context.confirmedBlockNumber) {
                 batchSize = parseInt((context.confirmedBlockNumber - fromBlock) * 0.75);
               }
               batchSize = (batchSize > 10) ? batchSize: 10; // avoid divide by 0
               let toBlock = (parseInt(fromBlock) + batchSize < context.confirmedBlockNumber) ? (parseInt(fromBlock) + batchSize) : context.confirmedBlockNumber;
-              console.log(moment().format("HH:mm:ss") + " from: " + fromBlock + ", to: " + toBlock + ", range: " + (toBlock - fromBlock) + ", batchSize: " + batchSize);
               const transferTopics = [ '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef', null, null ];
               try {
                 const logs = await context.provider.getLogs({ address: context.address, fromBlock, toBlock, topics: transferTopics });
@@ -1172,11 +1172,13 @@
                     }
                     if (!(event.logIndex in transfers[event.blockNumber][event.transactionIndex][event.transactionHash])) {
                       Vue.set(transfers[event.blockNumber][event.transactionIndex][event.transactionHash], event.logIndex, { from, to, tokens });
+                      newEvents++;
                     }
                   }
                   count++;
                 }
                 this.sync.completed = count;
+                console.log(moment().format("HH:mm:ss") + " from: " + fromBlock + ", to: " + toBlock + ", range: " + (toBlock - fromBlock) + ", batchSize: " + batchSize + ", newEvents: " + newEvents);
                 fromBlock = toBlock;
               } catch (e) {
                 console.log(e);
@@ -1201,7 +1203,7 @@
             for (const [address, coinInfo] of Object.entries(this.settings.coins)) {
               if (coinInfo.sync && !this.sync.halt) {
                 // console.log("Processing: " + address + " " + coinInfo.symbol + " " + coinInfo.name);
-                await this.syncCoin({ provider, confirmedBlockNumber, db, address: address, symbol: coinInfo.symbol })
+                await this.syncCoinTransfers({ provider, confirmedBlockNumber, db, address: address, symbol: coinInfo.symbol });
               //   const accountInfo = this.settings.accounts[address] || {};
               //   this.sync.completed = 0;
               //   this.sync.total = null;
