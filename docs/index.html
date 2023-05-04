@@ -1230,13 +1230,13 @@
                   count++;
                 }
                 this.sync.completed = count;
-                console.log(moment().format("HH:mm:ss") + " Pool filter #" + topicsIndex + " from: " + fromBlock + ", to: " + toBlock + ", range: " + (toBlock - fromBlock) + ", newEvents: " + newEvents);
+                console.log(moment().format("HH:mm:ss") + " Pool " + (topicsIndex == 0 ? ("*/" + context.symbol) : (context.symbol + "/*")) + " from: " + fromBlock + ", to: " + toBlock + ", range: " + (toBlock - fromBlock) + ", newEvents: " + newEvents);
                 fromBlock = toBlock;
               } catch (e) {
                 console.log(e);
               }
             }
-            console.log("pools: " + JSON.stringify(pools, null, 2));
+            // console.log("pools: " + JSON.stringify(pools, null, 2));
             await context.db.cache.put({ objectName: context.address + '_uniswapv2pools', object: pools }).then (function() {
             }).catch(function(error) {
               console.log("error: " + error);
@@ -1287,7 +1287,7 @@
                   count++;
                 }
                 this.sync.completed = count;
-                console.log(moment().format("HH:mm:ss") + " Pool filter #" + topicsIndex + " from: " + fromBlock + ", to: " + toBlock + ", range: " + (toBlock - fromBlock) + ", newEvents: " + newEvents);
+                console.log(moment().format("HH:mm:ss") + " Pool " + (topicsIndex == 0 ? ("*/" + context.symbol) : (context.symbol + "/*")) + " from: " + fromBlock + ", to: " + toBlock + ", range: " + (toBlock - fromBlock) + ", newEvents: " + newEvents);
                 fromBlock = toBlock;
               } catch (e) {
                 console.log(e);
