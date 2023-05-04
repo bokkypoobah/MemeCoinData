@@ -1115,8 +1115,8 @@
             }
             this.saveSettings();
           },
-          async syncCoin(db, coinInfo) {
-            console.log("syncCoin: " + coinInfo.address + " " + coinInfo.symbol + " " + coinInfo.name);
+          async syncCoin(context) {
+            console.log("syncCoin: " + context.address + " " + context.symbol);
             // const startBlock = accountData && accountData.updated && accountData.updated.blockNumber && (parseInt(accountData.updated.blockNumber) - parameter.OVERLAPBLOCKS) || 0;
             const provider = new ethers.providers.Web3Provider(window.ethereum);
             const block = await provider.getBlock();
@@ -1130,7 +1130,7 @@
               const endBatch = (parseInt(startBatch) + BATCHSIZE < confirmedBlockNumber) ? (parseInt(startBatch) + BATCHSIZE) : confirmedBlockNumber;
               console.log("batch: " + startBatch + " - " + endBatch);
               const transferTopics = [ '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef', null, null ];
-              const logs = await provider.getLogs({ address: coinInfo.address, fromBlock: startBatch, toBlock: endBatch, topics: transferTopics });
+              const logs = await provider.getLogs({ address: context.address, fromBlock: startBatch, toBlock: endBatch, topics: transferTopics });
               for (const event of logs) {
                 if (!event.removed) {
                   let from, to, tokens;
@@ -1147,8 +1147,6 @@
                     to = ethers.utils.getAddress('0x' + event.data.substring(90, 130));
                     tokens = ethers.BigNumber.from('0x' + event.data.substring(130, 193)).toString();
                   }
-                  // console.log("event " + JSON.stringify(event, null, 2));
-                  // console.log("from: " + from + ", to: " + to + ", tokens: " + tokens);
                   const record = {
                     blockNumber: event.blockNumber,
                     transactionIndex: event.transactionIndex,
@@ -1178,8 +1176,7 @@
                 }
               }
             }
-            console.log("transfers: " + JSON.stringify(transfers, null, 2));
-            await db.cache.put({ objectName: coinInfo.address, object: transfers }).then (function() {
+            await context.db.cache.put({ objectName: context.address, object: transfers }).then (function() {
             }).catch(function(error) {
               console.log("error: " + error);
             });
@@ -1191,7 +1188,7 @@
             for (const [coinAddress, coinInfo] of Object.entries(this.settings.coins)) {
               if (coinInfo.sync && !this.sync.halt) {
                 console.log("Processing: " + coinAddress + " " + coinInfo.symbol + " " + coinInfo.name);
-                await this.syncCoin(db0, { address: coinAddress, ...coinInfo })
+                await this.syncCoin({ db: db0, address: coinAddress, symbol: coinInfo.symbol })
               //   const accountInfo = this.settings.accounts[address] || {};
               //   this.sync.completed = 0;
               //   this.sync.total = null;
@@ -1275,7 +1272,7 @@
             }
             db0.close();
             console.log("Loaded " + count + " events");
-            console.log(JSON.stringify(transfers, null, 2));
+            // console.log(JSON.stringify(transfers, null, 2));
             this.transfers = transfers;
           },
           async requestReservoirAPITokenMetadataRefresh(token) {
