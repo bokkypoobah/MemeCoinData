@@ -1125,7 +1125,13 @@
             console.log("confirmedBlockNumber: " + confirmedBlockNumber);
             const startBlock = 17149228;
             const BATCHSIZE = 1000;
-            const transfers = {};
+            let transfers = {};
+            const transfersDataObject = await context.db.cache.where("objectName").equals(context.address).toArray();
+            if (transfersDataObject.length == 1) {
+              transfers = transfersDataObject[0].object;
+            }
+            console.log("transfers BEFORE: " + JSON.stringify(transfers));
+
             for (let startBatch = startBlock; startBatch < confirmedBlockNumber; startBatch += BATCHSIZE) {
               const endBatch = (parseInt(startBatch) + BATCHSIZE < confirmedBlockNumber) ? (parseInt(startBatch) + BATCHSIZE) : confirmedBlockNumber;
               console.log("batch: " + startBatch + " - " + endBatch);
