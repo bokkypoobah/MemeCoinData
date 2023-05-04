@@ -1117,12 +1117,15 @@
           },
           async syncCoin(context) {
             console.log("syncCoin: " + context.address + " " + context.symbol);
-            let startBlock = 0; // 17149228;
+            this.sync.completed = 0;
+            this.sync.total = null;
+            this.sync.section = context.symbol;
+            let startBlock = 0;
             const BATCHSIZE = 1000;
             const transfersDataObject = await context.db.cache.where("objectName").equals(context.address).toArray();
             const transfers = transfersDataObject.length == 1 ? transfersDataObject[0].object : {};
             const blockNumbers = Object.keys(transfers).sort((a, b) => { return b - a });
-            if (blockNumbers.length > 0) {
+            if (false && blockNumbers.length > 0) {
               startBlock = parseInt(blockNumbers[0]);
               console.log("startBlock: " + startBlock);
               console.log("confirmedBlockNumber: " + context.confirmedBlockNumber);
@@ -1131,6 +1134,7 @@
             const BATCHREDUCTIONFACTOR = 0.50;
             let done = false;
             let fromBlock = startBlock;
+            let count = 0;
             do {
               if (batchSize > 1000 && parseInt(fromBlock) + batchSize > context.confirmedBlockNumber) {
                 batchSize = parseInt((context.confirmedBlockNumber - fromBlock) * 0.75);
@@ -1170,14 +1174,16 @@
                       Vue.set(transfers[event.blockNumber][event.transactionIndex][event.transactionHash], event.logIndex, { from, to, tokens });
                     }
                   }
+                  count++;
                 }
+                this.sync.completed = count;
                 fromBlock = toBlock;
               } catch (e) {
                 console.log(e);
                 batchSize = parseInt(batchSize * BATCHREDUCTIONFACTOR);
               }
               done = fromBlock >= context.confirmedBlockNumber;
-            } while (!done);
+            } while (!done && !this.sync.halt);
             await context.db.cache.put({ objectName: context.address, object: transfers }).then (function() {
             }).catch(function(error) {
               console.log("error: " + error);
