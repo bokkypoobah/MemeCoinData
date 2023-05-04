@@ -1119,9 +1119,9 @@
             console.log("syncCoinTransfers: " + context.address + " " + context.symbol);
             this.sync.completed = 0;
             this.sync.total = null;
-            this.sync.section = context.symbol + ' txs';
-            const transfersDataObject = await context.db.cache.where("objectName").equals(context.address + "_transfers").toArray();
-            const transfers = transfersDataObject.length == 1 ? transfersDataObject[0].object : {};
+            this.sync.section = context.symbol + ' Txs';
+            const dataObject = await context.db.cache.where("objectName").equals(context.address + "_transfers").toArray();
+            const transfers = dataObject.length == 1 ? dataObject[0].object : {};
             const blockNumbers = Object.keys(transfers).sort((a, b) => { return b - a });
             const startBlock = blockNumbers.length > 0 ? parseInt(blockNumbers[0]): 0;
             let batchSize = 100000000;
@@ -1189,10 +1189,10 @@
             console.log("syncCoinUniswapV3Pools: " + context.address + " " + context.symbol);
             this.sync.completed = 0;
             this.sync.total = null;
-            this.sync.section = context.symbol;
-            const transfersDataObject = await context.db.cache.where("objectName").equals(context.address).toArray();
-            const transfers = transfersDataObject.length == 1 ? transfersDataObject[0].object : {};
-            const blockNumbers = Object.keys(transfers).sort((a, b) => { return b - a });
+            this.sync.section = context.symbol + " UniswapV3Pools";
+            const dataObject = await context.db.cache.where("objectName").equals(context.address + '_uniswapv3pools').toArray();
+            const pools = dataObject.length == 1 ? dataObject[0].object : {};
+            const blockNumbers = Object.keys(pools).sort((a, b) => { return b - a });
             const startBlock = blockNumbers.length > 0 ? parseInt(blockNumbers[0]): 0;
             const BATCHREDUCTIONFACTOR = 0.50;
             let count = 0;
@@ -1215,9 +1215,29 @@
                 // PoolCreated (index_topic_1 address token0, index_topic_2 address token1, index_topic_3 uint24 fee, int24 tickSpacing, address pool)
                 try {
                   const logs = await context.provider.getLogs({ address: UNISWAPV3FACTORY, fromBlock, toBlock, topics });
-                  console.log("logs: " + JSON.stringify(logs, null, 2));
-                  // for (const event of logs) {
-                  //   if (!event.removed) {
+                  // console.log("logs: " + JSON.stringify(logs, null, 2));
+                  for (const event of logs) {
+                    if (!event.removed) {
+
+                      // PoolCreated (index_topic_1 address token0, index_topic_2 address token1, index_topic_3 uint24 fee, int24 tickSpacing, address pool)
+                      // event: {
+                      //   "blockNumber": 17177272,
+                      //   "blockHash": "0xbe653ee26a08ea051018894d0f0faa4365879ebe0d77c9f6872df4084d83b8ea",
+                      //   "transactionIndex": 111,
+                      //   "removed": false,
+                      //   "address": "0x1F98431c8aD98523631AE4a59f267346ea31F984",
+                      //   "data": "0x000000000000000000000000000000000000000000000000000000000000003c0000000000000000000000008107fca5494375fc743a9fc4d4844353a1af3d94",
+                      //   "topics": [
+                      //     "0x783cca1c0412dd0d695e784568c96da2e9c22ff989357a2e8b1d9b2b4e6b7118",
+                      //     "0x000000000000000000000000a35923162c49cf95e6bf26623385eb431ad920d3",
+                      //     "0x000000000000000000000000c02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
+                      //     "0x0000000000000000000000000000000000000000000000000000000000000bb8"
+                      //   ],
+                      //   "transactionHash": "0x8259a4b40e68141274eb156bb14c70b15e1f48a9898c44fa67a3973e974c772d",
+                      //   "logIndex": 323
+                      // }
+
+                      console.log("event: " + JSON.stringify(event, null, 2));
                   //     let from, to, tokens;
                   //     if (event.topics.length == 4) {
                   //       from = ethers.utils.getAddress('0x' + event.topics[1].substring(26));
@@ -1245,9 +1265,9 @@
                   //       Vue.set(transfers[event.blockNumber][event.transactionIndex][event.transactionHash], event.logIndex, { from, to, tokens });
                   //       newEvents++;
                   //     }
-                  //   }
-                  //   count++;
-                  // }
+                    }
+                    count++;
+                  }
                   this.sync.completed = count;
                   console.log(moment().format("HH:mm:ss") + " from: " + fromBlock + ", to: " + toBlock + ", range: " + (toBlock - fromBlock) + ", batchSize: " + batchSize + ", newEvents: " + newEvents);
                   fromBlock = toBlock;
@@ -1275,7 +1295,7 @@
             for (const [address, coinInfo] of Object.entries(this.settings.coins)) {
               if (coinInfo.sync && !this.sync.halt) {
                 await this.syncCoinTransfers({ provider, confirmedBlockNumber, db, address: address, symbol: coinInfo.symbol });
-                // await this.syncCoinUniswapV3Pools({ provider, confirmedBlockNumber, db, address: address, symbol: coinInfo.symbol });
+                await this.syncCoinUniswapV3Pools({ provider, confirmedBlockNumber, db, address: address, symbol: coinInfo.symbol });
               }
             }
             this.sync.section = null;
