@@ -1122,7 +1122,7 @@
             const transfersDataObject = await context.db.cache.where("objectName").equals(context.address).toArray();
             const transfers = transfersDataObject.length == 1 ? transfersDataObject[0].object : {};
             const blockNumbers = Object.keys(transfers).sort((a, b) => { return b - a });
-            if (false && blockNumbers.length > 0) {
+            if (blockNumbers.length > 0) {
               startBlock = parseInt(blockNumbers[0]);
               console.log("startBlock: " + startBlock);
               console.log("confirmedBlockNumber: " + context.confirmedBlockNumber);
@@ -1132,9 +1132,10 @@
             let done = false;
             let fromBlock = startBlock;
             do {
-              if (parseInt(fromBlock) + batchSize > context.confirmedBlockNumber) {
+              if (batchSize > 1000 && parseInt(fromBlock) + batchSize > context.confirmedBlockNumber) {
                 batchSize = parseInt((context.confirmedBlockNumber - fromBlock) * 0.75);
               }
+              batchSize = (batchSize > 10) ? batchSize: 10; // avoid divide by 0
               let toBlock = (parseInt(fromBlock) + batchSize < context.confirmedBlockNumber) ? (parseInt(fromBlock) + batchSize) : context.confirmedBlockNumber;
               console.log(moment().format("HH:mm:ss") + " from: " + fromBlock + ", to: " + toBlock + ", range: " + (toBlock - fromBlock) + ", batchSize: " + batchSize);
               const transferTopics = [ '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef', null, null ];
@@ -1177,56 +1178,6 @@
               }
               done = fromBlock >= context.confirmedBlockNumber;
             } while (!done);
-            // for (let fromBlock = startBlock; fromBlock < context.confirmedBlockNumber; fromBlock += BATCHSIZE) {
-            //   const toBlock = (parseInt(fromBlock) + BATCHSIZE < context.confirmedBlockNumber) ? (parseInt(fromBlock) + BATCHSIZE) : context.confirmedBlockNumber;
-            //   console.log("batch: " + fromBlock + " - " + toBlock + " " + (toBlock - fromBlock));
-            //   const transferTopics = [ '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef', null, null ];
-            //   const logs = await context.provider.getLogs({ address: context.address, fromBlock, toBlock, topics: transferTopics });
-            //   for (const event of logs) {
-            //     if (!event.removed) {
-            //       let from, to, tokens;
-            //       if (event.topics.length == 4) {
-            //         from = ethers.utils.getAddress('0x' + event.topics[1].substring(26));
-            //         to = ethers.utils.getAddress('0x' + event.topics[2].substring(26));
-            //         tokens = ethers.BigNumber.from(event.topics[3]).toString();
-            //       } else if (event.topics.length == 3) {
-            //         from = ethers.utils.getAddress('0x' + event.topics[1].substring(26));
-            //         to = ethers.utils.getAddress('0x' + event.topics[2].substring(26));
-            //         tokens = ethers.BigNumber.from(event.data).toString();
-            //       } else if (event.topics.length == 1) {
-            //         from = ethers.utils.getAddress('0x' + event.data.substring(26, 66));
-            //         to = ethers.utils.getAddress('0x' + event.data.substring(90, 130));
-            //         tokens = ethers.BigNumber.from('0x' + event.data.substring(130, 193)).toString();
-            //       }
-            //       const record = {
-            //         blockNumber: event.blockNumber,
-            //         transactionIndex: event.transactionIndex,
-            //         address: event.address,
-            //         transactionHash: event.transactionHash,
-            //         logIndex: event.logIndex,
-            //         from,
-            //         to,
-            //         tokens,
-            //       }
-            //       if (!(record.blockNumber in transfers)) {
-            //         Vue.set(transfers, record.blockNumber, {});
-            //       }
-            //       if (!(record.transactionIndex in transfers[record.blockNumber])) {
-            //         Vue.set(transfers[record.blockNumber], record.transactionIndex, {});
-            //       }
-            //       if (!(record.transactionHash in transfers[record.blockNumber][record.transactionIndex])) {
-            //         Vue.set(transfers[record.blockNumber][record.transactionIndex], record.transactionHash, {});
-            //       }
-            //       if (!(record.logIndex in transfers[record.blockNumber][record.transactionIndex][record.transactionHash])) {
-            //         Vue.set(transfers[record.blockNumber][record.transactionIndex][record.transactionHash], record.logIndex, {
-            //           from: record.from,
-            //           to: record.to,
-            //           tokens: record.tokens,
-            //         });
-            //       }
-            //     }
-            //   }
-            // }
             await context.db.cache.put({ objectName: context.address, object: transfers }).then (function() {
             }).catch(function(error) {
               console.log("error: " + error);
