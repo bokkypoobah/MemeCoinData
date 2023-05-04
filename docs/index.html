@@ -167,16 +167,16 @@
               <div class="mt-0 flex-grow-1">
               </div>
               <div class="mt-0 pl-1">
-                <b-form-select size="sm" v-model="settings.tokensTable.sortOption" @change="saveSettings" :options="tokensSortOptions" v-b-popover.hover.top="'Yeah. Sort'"></b-form-select>
+                <b-form-select size="sm" v-model="settings.transfersTable.sortOption" @change="saveSettings" :options="transfersSortOptions" v-b-popover.hover.top="'Yeah. Sort'"></b-form-select>
               </div>
               <div class="mt-0 pl-1">
-                <font size="-2" v-b-popover.hover.top="'# tokens'">{{ filteredSortedTokens.length + '/' + tokens.length }}</font>
+                <font size="-2" v-b-popover.hover.top="'# tokens'">{{ filteredSortedTransfers.length + '/' + tokens.length }}</font>
               </div>
               <div class="mt-0 pl-1">
-                <b-pagination size="sm" v-model="settings.tokensTable.currentPage" @input="saveSettings" :total-rows="filteredSortedTokens.length" :per-page="settings.tokensTable.pageSize" style="height: 0;"></b-pagination>
+                <b-pagination size="sm" v-model="settings.transfersTable.currentPage" @input="saveSettings" :total-rows="filteredSortedTransfers.length" :per-page="settings.transfersTable.pageSize" style="height: 0;"></b-pagination>
               </div>
               <div class="mt-0 pl-1">
-                <b-form-select size="sm" v-model="settings.tokensTable.pageSize" @change="saveSettings" :options="pageSizes" v-b-popover.hover.top="'Tokens page size'"></b-form-select>
+                <b-form-select size="sm" v-model="settings.transfersTable.pageSize" @change="saveSettings" :options="pageSizes" v-b-popover.hover.top="'Tokens page size'"></b-form-select>
               </div>
             </div>
 
@@ -235,7 +235,7 @@
 
             </div>
 
-            <b-table small fixed striped responsive hover :fields="tokensFields" :items="pagedFilteredSortedTokens" show-empty empty-html="Click [+] above to add new collections" head-variant="light" class="mx-0 my-1">
+            <b-table small fixed striped responsive hover :fields="transfersFields" :items="pagedFilteredSortedTransfers" show-empty empty-html="Click [+] above to add new collections" head-variant="light" class="mx-0 my-1">
               <template #cell(number)="data">
                 <!--
                 <b-form-checkbox size="sm" :checked="selectedCollections[data.item.contract] ? 1 : 0" value="1" @change="toggleSelectedCollections([data.item])">
@@ -485,6 +485,12 @@
               pageSize: 10,
               sortOption: 'groupnameasc',
             },
+            transfersTable: {
+              filter: null,
+              currentPage: 1,
+              pageSize: 10,
+              sortOption: 'blocknumberdsc',
+            },
             tokensTable: {
               tokenFilter: null,
               collectionFilter: null,
@@ -492,7 +498,7 @@
               pageSize: 10,
               sortOption: 'lastsaledsc',
             },
-            version: 2,
+            version: 3,
           },
           newCoinAddress: null,
           newAddress: null,
@@ -520,6 +526,10 @@
             { value: 'groupnamedsc', text: '▼ Group, ▲ Name' },
             { value: 'nameasc', text: '▲ Name' },
             { value: 'namedsc', text: '▼ Name' },
+          ],
+          transfersSortOptions: [
+            { value: 'blocknumberasc', text: '▲ Block Number' },
+            { value: 'blocknumberdsc', text: '▼ Block Number' },
           ],
           tokensSortOptions: [
             { value: 'lastsaleasc', text: '▲ Last Sale' },
@@ -551,6 +561,14 @@
             { key: 'group', label: 'Group', sortable: false, thStyle: 'width: 20%;', tdClass: 'text-truncate' },
             { key: 'name', label: 'Name', sortable: false, thStyle: 'width: 40%;', tdClass: 'text-truncate' },
             { key: 'delete', label: 'Delete', sortable: false, thStyle: 'width: 10%;', tdClass: 'text-truncate' },
+          ],
+          transfersFields: [
+            { key: 'number', label: '#', sortable: false, thStyle: 'width: 5%;', tdClass: 'text-truncate' },
+            { key: 'blockNumber', label: 'Block Number', sortable: false, thStyle: 'width: 15%;', tdClass: 'text-truncate' },
+            { key: 'coin', label: 'Coin', sortable: false, thStyle: 'width: 20%;', tdClass: 'text-truncate' },
+            { key: 'from', label: 'From', sortable: false, thStyle: 'width: 20%;', tdClass: 'text-truncate' },
+            { key: 'to', label: 'To', sortable: false, thStyle: 'width: 20%;', tdClass: 'text-truncate' },
+            { key: 'tokens', label: 'Tokens', sortable: false, thStyle: 'width: 20%;', tdClass: 'text-truncate' },
           ],
           tokensFields: [
             { key: 'number', label: '#', sortable: false, thStyle: 'width: 5%;', tdClass: 'text-truncate' },
@@ -594,7 +612,7 @@
         computed: {
           getAllGroups() {
             const groupsMap = {};
-            for (const token of this.filteredTokens) {
+            for (const token of this.filteredTransfers) {
               const accountInfo = this.settings.accounts[token.owner] || {};
               const group = accountInfo.group || "(blank)";
               if (!(group in groupsMap)) {
@@ -617,7 +635,7 @@
           },
           getAllAccounts() {
             const accountsMap = {};
-            for (const token of this.filteredTokens) {
+            for (const token of this.filteredTransfers) {
               if (!(token.owner in accountsMap)) {
                 accountsMap[token.owner] = 0;
               }
@@ -640,7 +658,7 @@
           },
           getAllCollections() {
             const collectionsMap = {};
-            for (const token of this.filteredTokens) {
+            for (const token of this.filteredTransfers) {
               if (!(token.contract in collectionsMap)) {
                 collectionsMap[token.contract] = 0;
               }
@@ -794,89 +812,92 @@
           pagedFilteredSortedAccounts() {
             return this.filteredSortedAccounts.slice((this.settings.accountsTable.currentPage - 1) * this.settings.accountsTable.pageSize, this.settings.accountsTable.currentPage * this.settings.accountsTable.pageSize);
           },
-          filteredTokens() {
-            const tokenFilterRegex = this.settings.tokensTable.tokenFilter && this.settings.tokensTable.tokenFilter.length > 0 ? new RegExp(this.settings.tokensTable.tokenFilter, 'i') : null;
-            const searchCollectionLower = this.settings.tokensTable.collectionfilter && this.settings.tokensTable.collectionfilter.toLowerCase() || null;
-            let groupFilter = null;
-            if (this.settings.filters.groups && Object.keys(this.settings.filters.groups).length > 0) {
-              groupFilter = this.settings.filters.groups;
-            }
-            let accountFilter = null;
-            if (this.settings.filters.accounts && Object.keys(this.settings.filters.accounts).length > 0) {
-              accountFilter = this.settings.filters.accounts;
-            }
-            let collectionFilter = null;
-            if (this.settings.filters.collections && Object.keys(this.settings.filters.collections).length > 0) {
-              collectionFilter = this.settings.filters.collections;
-            }
+          filteredTransfers() {
+            // const tokenFilterRegex = this.settings.tokensTable.tokenFilter && this.settings.tokensTable.tokenFilter.length > 0 ? new RegExp(this.settings.tokensTable.tokenFilter, 'i') : null;
+            // const searchCollectionLower = this.settings.tokensTable.collectionfilter && this.settings.tokensTable.collectionfilter.toLowerCase() || null;
+            // let groupFilter = null;
+            // if (this.settings.filters.groups && Object.keys(this.settings.filters.groups).length > 0) {
+            //   groupFilter = this.settings.filters.groups;
+            // }
+            // let accountFilter = null;
+            // if (this.settings.filters.accounts && Object.keys(this.settings.filters.accounts).length > 0) {
+            //   accountFilter = this.settings.filters.accounts;
+            // }
+            // let collectionFilter = null;
+            // if (this.settings.filters.collections && Object.keys(this.settings.filters.collections).length > 0) {
+            //   collectionFilter = this.settings.filters.collections;
+            // }
             const results = [];
-            for (const token of this.tokens) {
-              let include = true;
-              const collectionName = this.collections[token.contract] && this.collections[token.contract].name || null;
-              if (tokenFilterRegex) {
-                if (!tokenFilterRegex.test(token.name) && !tokenFilterRegex.test(token.tokenId.toString())) {
-                  include = false;
+            for (const [blockNumber, txIndexes] of Object.entries(this.transfers)) {
+              for (const [txIndex, txHashes] of Object.entries(txIndexes)) {
+                for (const [txHash, logIndexes] of Object.entries(txHashes)) {
+                  for (const [logIndex, txData] of Object.entries(logIndexes)) {
+                    results.push({ blockNumber, txIndex, txHash, logIndex, coin: txData.address, from: txData.from, to: txData.to, tokens: txData.tokens });
+                  }
                 }
               }
-              if (include && searchCollectionLower) {
-                if (!(collectionName && collectionName.toLowerCase().includes(searchCollectionLower))) {
-                  include = false;
-                }
-              }
-              if (include && groupFilter) {
-                const accountInfo = this.settings.accounts[token.owner] || {};
-                const group = accountInfo.group || "(blank)";
-                if (!(group in groupFilter)) {
-                  include = false;
-                }
-              }
-              if (include && accountFilter) {
-                if (!(token.owner in accountFilter)) {
-                  include = false;
-                }
-              }
-              if (include && collectionFilter) {
-                if (!(token.contract in collectionFilter)) {
-                  include = false;
-                }
-              }
-              if (include) {
-                const ownerInfo = this.settings.accounts[token.owner] || {};
-                const ownerName = ownerInfo.name && (ownerInfo.name + ' ' + token.owner.substring(0, 8)) || token.owner.substring(0, 16);
-                results.push({
-                  ...token,
-                  ownerName,
-                  collectionName,
-                  lastSale: {
-                    timestamp: token.lastSale && token.lastSale.timestamp || null,
-                    amount: token.lastSale && token.lastSale.price && token.lastSale.price.amount && token.lastSale.price.amount.native || null,
-                    currency: token.lastSale && token.lastSale.price && token.lastSale.price.currency && token.lastSale.price.currency.symbol || null,
-                    amountInUSD: token.lastSale && token.lastSale.price && token.lastSale.price.amount && token.lastSale.price.amount.usd || null,
-                  },
-                });
-              }
+            //   let include = true;
+            //   const collectionName = this.collections[token.contract] && this.collections[token.contract].name || null;
+            //   if (tokenFilterRegex) {
+            //     if (!tokenFilterRegex.test(token.name) && !tokenFilterRegex.test(token.tokenId.toString())) {
+            //       include = false;
+            //     }
+            //   }
+            //   if (include && searchCollectionLower) {
+            //     if (!(collectionName && collectionName.toLowerCase().includes(searchCollectionLower))) {
+            //       include = false;
+            //     }
+            //   }
+            //   if (include && groupFilter) {
+            //     const accountInfo = this.settings.accounts[token.owner] || {};
+            //     const group = accountInfo.group || "(blank)";
+            //     if (!(group in groupFilter)) {
+            //       include = false;
+            //     }
+            //   }
+            //   if (include && accountFilter) {
+            //     if (!(token.owner in accountFilter)) {
+            //       include = false;
+            //     }
+            //   }
+            //   if (include && collectionFilter) {
+            //     if (!(token.contract in collectionFilter)) {
+            //       include = false;
+            //     }
+            //   }
+            //   if (include) {
+            //     const ownerInfo = this.settings.accounts[token.owner] || {};
+            //     const ownerName = ownerInfo.name && (ownerInfo.name + ' ' + token.owner.substring(0, 8)) || token.owner.substring(0, 16);
+            //     results.push({
+            //       ...token,
+            //       ownerName,
+            //       collectionName,
+            //       lastSale: {
+            //         timestamp: token.lastSale && token.lastSale.timestamp || null,
+            //         amount: token.lastSale && token.lastSale.price && token.lastSale.price.amount && token.lastSale.price.amount.native || null,
+            //         currency: token.lastSale && token.lastSale.price && token.lastSale.price.currency && token.lastSale.price.currency.symbol || null,
+            //         amountInUSD: token.lastSale && token.lastSale.price && token.lastSale.price.amount && token.lastSale.price.amount.usd || null,
+            //       },
+            //     });
+            //   }
             }
             return results;
           },
-          filteredSortedTokens() {
-            let results = this.filteredTokens;
-            if (this.settings.tokensTable.sortOption == 'lastsaleasc') {
+          filteredSortedTransfers() {
+            let results = this.filteredTransfers;
+            if (this.settings.transfersTable.sortOption == 'blocknumberasc') {
               results.sort((a, b) => {
-                const lastSaleA = a.lastSale && a.lastSale.timestamp || 0;
-                const lastSaleB = b.lastSale && b.lastSale.timestamp || 0;
-                return lastSaleA - lastSaleB;
+                return a.blockNumber - b.blockNumber;
               });
-            } else if (this.settings.tokensTable.sortOption == 'lastsaledsc') {
+            } else if (this.settings.transfersTable.sortOption == 'blocknumberdsc') {
               results.sort((a, b) => {
-                const lastSaleA = a.lastSale && a.lastSale.timestamp || 0;
-                const lastSaleB = b.lastSale && b.lastSale.timestamp || 0;
-                return lastSaleB - lastSaleA;
+                return b.blockNumber - a.blockNumber;
               });
             }
             return results;
           },
-          pagedFilteredSortedTokens() {
-            return this.filteredSortedTokens.slice((this.settings.tokensTable.currentPage - 1) * this.settings.tokensTable.pageSize, this.settings.tokensTable.currentPage * this.settings.tokensTable.pageSize);
+          pagedFilteredSortedTransfers() {
+            return this.filteredSortedTransfers.slice((this.settings.transfersTable.currentPage - 1) * this.settings.transfersTable.pageSize, this.settings.transfersTable.currentPage * this.settings.transfersTable.pageSize);
           },
         },
 
@@ -1239,7 +1260,7 @@
                           transfers[blockNumber][txIndex][txHash] = {};
                         }
                         for (const [logIndex, txData] of Object.entries(logIndexes)) {
-                          console.log(txHash + " => " + JSON.stringify({ address: coinAddress, ...txData }));
+                          // console.log(txHash + " => " + JSON.stringify({ address: coinAddress, ...txData }));
                           if (!(logIndex in transfers[blockNumber][txIndex][txHash])) {
                             transfers[blockNumber][txIndex][txHash][logIndex] = { address: coinAddress, ...txData };
                             count++;
@@ -1252,8 +1273,8 @@
               }
             }
             db0.close();
-            // console.log(JSON.stringify(transfers, null, 2));
             console.log("Loaded " + count + " events");
+            console.log(JSON.stringify(transfers, null, 2));
             this.transfers = transfers;
           },
           async requestReservoirAPITokenMetadataRefresh(token) {
