@@ -1184,6 +1184,32 @@
               console.log("error: " + error);
             });
           },
+          async syncCoins() {
+            console.log("syncCoins");
+            const provider = new ethers.providers.Web3Provider(window.ethereum);
+            const block = await provider.getBlock();
+            const CONFIRMATIONS = 10;
+            const confirmedBlockNumber = block && block.number && (block.number - CONFIRMATIONS) || null;
+            console.log("confirmedBlockNumber: " + confirmedBlockNumber);
+            const db = new Dexie(this.db.name);
+            db.version(this.db.version).stores(this.db.schemaDefinition);
+            for (const [address, coinInfo] of Object.entries(this.settings.coins)) {
+              if (coinInfo.sync && !this.sync.halt) {
+                // if (false) {
+                  await this.syncCoinTransfers({ provider, confirmedBlockNumber, db, address, symbol: coinInfo.symbol });
+                  await this.syncUniswapV2Pools({ provider, confirmedBlockNumber, db, address, symbol: coinInfo.symbol });
+                  await this.syncUniswapV3Pools({ provider, confirmedBlockNumber, db, address, symbol: coinInfo.symbol });
+                  await this.syncUniswapV2Trades({ provider, confirmedBlockNumber, db, address, symbol: coinInfo.symbol });
+                  await this.syncUniswapV3Trades({ provider, confirmedBlockNumber, db, address, symbol: coinInfo.symbol });
+                // } else {
+                // }
+              }
+            }
+            this.sync.section = null;
+            this.sync.halt = false;
+            db.close();
+            await this.loadCurrentData();
+          },
           async syncCoinTransfers(context) {
             console.log("syncCoinTransfers: " + context.address + " " + context.symbol);
             this.sync.completed = 0;
@@ -1198,7 +1224,7 @@
             let done = false;
             let fromBlock = startBlock;
             let count = 0;
-            let newEvents = 0;
+            let newTransfers = 0;
             const newBlocks = {};
             const newAccounts = {};
             do {
@@ -1246,13 +1272,13 @@
                     }
                     if (!(event.logIndex in transfers[event.blockNumber][event.transactionIndex][event.transactionHash])) {
                       transfers[event.blockNumber][event.transactionIndex][event.transactionHash][event.logIndex] = { from, to, tokens };
-                      newEvents++;
+                      newTransfers++;
                     }
                   }
                   count++;
                 }
                 this.sync.completed = count;
-                console.log(moment().format("HH:mm:ss") + " from: " + fromBlock + ", to: " + toBlock + ", range: " + (toBlock - fromBlock) + ", batchSize: " + batchSize + ", newEvents: " + newEvents);
+                console.log(moment().format("HH:mm:ss") + " from: " + fromBlock + ", to: " + toBlock + ", range: " + (toBlock - fromBlock) + ", batchSize: " + batchSize + ", newTransfers: " + newTransfers);
                 fromBlock = toBlock;
               } catch (e) {
                 console.log(e);
@@ -1278,7 +1304,7 @@
             const blockNumbers = Object.keys(pools).sort((a, b) => { return b - a });
             const startBlock = blockNumbers.length > 0 ? parseInt(blockNumbers[0]) + 1: 0;
             let count = 0;
-            let newEvents = 0;
+            let newPools = 0;
             const coinAddressAs32Bytes = '0x000000000000000000000000' + context.address.substring(2, 42).toLowerCase();
             // PairCreated (index_topic_1 address token0, index_topic_2 address token1, address pair, uint256)
             const topicsList = [
@@ -1310,13 +1336,13 @@
                         factory: event.address,
                         transactionHash: event.transactionHash,
                       };
-                      newEvents++;
+                      newPools++;
                     }
                   }
                   count++;
                 }
                 this.sync.completed = count;
-                console.log(moment().format("HH:mm:ss") + " Pool " + (topicsIndex == 0 ? ("*/" + context.symbol) : (context.symbol + "/*")) + " from: " + fromBlock + ", to: " + toBlock + ", range: " + (toBlock - fromBlock) + ", newEvents: " + newEvents);
+                console.log(moment().format("HH:mm:ss") + " Pool " + (topicsIndex == 0 ? ("*/" + context.symbol) : (context.symbol + "/*")) + " from: " + fromBlock + ", to: " + toBlock + ", range: " + (toBlock - fromBlock) + ", newPools: " + newPools);
                 fromBlock = toBlock;
               } catch (e) {
                 console.log(e);
@@ -1339,7 +1365,7 @@
             const blockNumbers = Object.keys(pools).sort((a, b) => { return b - a });
             const startBlock = blockNumbers.length > 0 ? parseInt(blockNumbers[0]) + 1: 0;
             let count = 0;
-            let newEvents = 0;
+            let newPools = 0;
             const coinAddressAs32Bytes = '0x000000000000000000000000' + context.address.substring(2, 42).toLowerCase();
             // PoolCreated (index_topic_1 address token0, index_topic_2 address token1, index_topic_3 uint24 fee, int24 tickSpacing, address pool)
             const topicsList = [
@@ -1372,13 +1398,13 @@
                         factory: event.address,
                         transactionHash: event.transactionHash,
                       };
-                      newEvents++;
+                      newPools++;
                     }
                   }
                   count++;
                 }
                 this.sync.completed = count;
-                console.log(moment().format("HH:mm:ss") + " Pool " + (topicsIndex == 0 ? ("*/" + context.symbol) : (context.symbol + "/*")) + " from: " + fromBlock + ", to: " + toBlock + ", range: " + (toBlock - fromBlock) + ", newEvents: " + newEvents);
+                console.log(moment().format("HH:mm:ss") + " Pool " + (topicsIndex == 0 ? ("*/" + context.symbol) : (context.symbol + "/*")) + " from: " + fromBlock + ", to: " + toBlock + ", range: " + (toBlock - fromBlock) + ", newPools: " + newPools);
                 fromBlock = toBlock;
               } catch (e) {
                 console.log(e);
@@ -1418,7 +1444,7 @@
               let done = false;
               let fromBlock = startBlock;
               let count = 0;
-              let newEvents = 0;
+              let newTrades = 0;
               do {
                 if (batchSize > 1000 && parseInt(fromBlock) + batchSize > context.confirmedBlockNumber) {
                   batchSize = parseInt((context.confirmedBlockNumber - fromBlock) * 0.75);
@@ -1445,7 +1471,7 @@
                         trades[event.blockNumber][event.transactionIndex][event.transactionHash] = {};
                       }
                       if (!(event.logIndex in trades[event.blockNumber][event.transactionIndex][event.transactionHash])) {
-                        newEvents++;
+                        newTrades++;
                         trades[event.blockNumber][event.transactionIndex][event.transactionHash][event.logIndex] = {
                           sender,
                           recipient,
@@ -1457,7 +1483,7 @@
                     count++;
                   }
                   this.sync.completed = count;
-                  console.log(moment().format("HH:mm:ss") + " from: " + fromBlock + ", to: " + toBlock + ", range: " + (toBlock - fromBlock) + ", batchSize: " + batchSize + ", newEvents: " + newEvents);
+                  console.log(moment().format("HH:mm:ss") + " from: " + fromBlock + ", to: " + toBlock + ", range: " + (toBlock - fromBlock) + ", batchSize: " + batchSize + ", newTrades: " + newTrades);
                   fromBlock = toBlock;
                 } catch (e) {
                   console.log(e);
@@ -1500,7 +1526,7 @@
               let done = false;
               let fromBlock = startBlock;
               let count = 0;
-              let newEvents = 0;
+              let newTrades = 0;
               do {
                 if (batchSize > 1000 && parseInt(fromBlock) + batchSize > context.confirmedBlockNumber) {
                   batchSize = parseInt((context.confirmedBlockNumber - fromBlock) * 0.75);
@@ -1526,7 +1552,7 @@
                         trades[event.blockNumber][event.transactionIndex][event.transactionHash] = {};
                       }
                       if (!(event.logIndex in trades[event.blockNumber][event.transactionIndex][event.transactionHash])) {
-                        newEvents++;
+                        newTrades++;
                         trades[event.blockNumber][event.transactionIndex][event.transactionHash][event.logIndex] = {
                           sender,
                           recipient,
@@ -1541,7 +1567,7 @@
                     count++;
                   }
                   this.sync.completed = count;
-                  console.log(moment().format("HH:mm:ss") + " from: " + fromBlock + ", to: " + toBlock + ", range: " + (toBlock - fromBlock) + ", batchSize: " + batchSize + ", newEvents: " + newEvents);
+                  console.log(moment().format("HH:mm:ss") + " from: " + fromBlock + ", to: " + toBlock + ", range: " + (toBlock - fromBlock) + ", batchSize: " + batchSize + ", newTrades: " + newTrades);
                   fromBlock = toBlock;
                 } catch (e) {
                   console.log(e);
@@ -1556,32 +1582,6 @@
                 console.log("error: " + error);
               });
             }
-          },
-          async syncCoins() {
-            console.log("syncCoins");
-            const provider = new ethers.providers.Web3Provider(window.ethereum);
-            const block = await provider.getBlock();
-            const CONFIRMATIONS = 10;
-            const confirmedBlockNumber = block && block.number && (block.number - CONFIRMATIONS) || null;
-            console.log("confirmedBlockNumber: " + confirmedBlockNumber);
-            const db = new Dexie(this.db.name);
-            db.version(this.db.version).stores(this.db.schemaDefinition);
-            for (const [address, coinInfo] of Object.entries(this.settings.coins)) {
-              if (coinInfo.sync && !this.sync.halt) {
-                // if (false) {
-                  await this.syncCoinTransfers({ provider, confirmedBlockNumber, db, address, symbol: coinInfo.symbol });
-                  await this.syncUniswapV3Pools({ provider, confirmedBlockNumber, db, address, symbol: coinInfo.symbol });
-                  await this.syncUniswapV3Trades({ provider, confirmedBlockNumber, db, address, symbol: coinInfo.symbol });
-                // } else {
-                  await this.syncUniswapV2Pools({ provider, confirmedBlockNumber, db, address, symbol: coinInfo.symbol });
-                  await this.syncUniswapV2Trades({ provider, confirmedBlockNumber, db, address, symbol: coinInfo.symbol });
-                // }
-              }
-            }
-            this.sync.section = null;
-            this.sync.halt = false;
-            db.close();
-            await this.loadCurrentData();
           },
           async loadCurrentData() {
             const db = new Dexie(this.db.name);
