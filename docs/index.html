@@ -1137,7 +1137,30 @@
             }
             this.saveSettings();
           },
-          async getBlockTimestamps(context, newBlocks) {
+          async syncCoins() {
+            console.log("syncCoins");
+            const provider = new ethers.providers.Web3Provider(window.ethereum);
+            const block = await provider.getBlock();
+            const CONFIRMATIONS = 10;
+            const confirmedBlockNumber = block && block.number && (block.number - CONFIRMATIONS) || null;
+            console.log("confirmedBlockNumber: " + confirmedBlockNumber);
+            const db = new Dexie(this.db.name);
+            db.version(this.db.version).stores(this.db.schemaDefinition);
+            for (const [address, coinInfo] of Object.entries(this.settings.coins)) {
+              if (coinInfo.sync && !this.sync.halt) {
+                await this.syncCoinTransfers({ provider, confirmedBlockNumber, db, address, symbol: coinInfo.symbol });
+                await this.syncUniswapV2Pools({ provider, confirmedBlockNumber, db, address, symbol: coinInfo.symbol });
+                await this.syncUniswapV3Pools({ provider, confirmedBlockNumber, db, address, symbol: coinInfo.symbol });
+                await this.syncUniswapV2Trades({ provider, confirmedBlockNumber, db, address, symbol: coinInfo.symbol });
+                await this.syncUniswapV3Trades({ provider, confirmedBlockNumber, db, address, symbol: coinInfo.symbol });
+              }
+            }
+            this.sync.section = null;
+            this.sync.halt = false;
+            db.close();
+            await this.loadCurrentData();
+          },
+          async syncBlockTimestamps(context, newBlocks) {
             const BATCHSIZE = 1000;
             for (let i = 0; i < newBlocks.length; i += BATCHSIZE) {
               const batch = newBlocks.slice(i, parseInt(i) + BATCHSIZE);
@@ -1165,8 +1188,11 @@
               console.log("error: " + error);
             });
           },
-          async getENSNames(context, newAccounts) {
-            const BATCHSIZE = 200;
+          async syncENSNames(context, newAccounts) {
+            this.sync.completed = 0;
+            this.sync.total = newAccounts.length;
+            this.sync.section = context.symbol + ' ENS';
+            const BATCHSIZE = 1000;
             const ensReverseRecordsContract = new ethers.Contract(ENSREVERSERECORDSADDRESS, ENSREVERSERECORDSABI, context.provider);
             for (let i = 0; i < newAccounts.length; i += BATCHSIZE) {
               const batch = newAccounts.slice(i, parseInt(i) + BATCHSIZE);
@@ -1178,37 +1204,12 @@
                 // console.log(account + " => " + name);
                 Vue.set(this.ensMap, account, name);
               }
+              this.sync.completed += batch.length;
             }
             await context.db.cache.put({ objectName: "ensMap", object: this.ensMap }).then (function() {
             }).catch(function(error) {
               console.log("error: " + error);
             });
-          },
-          async syncCoins() {
-            console.log("syncCoins");
-            const provider = new ethers.providers.Web3Provider(window.ethereum);
-            const block = await provider.getBlock();
-            const CONFIRMATIONS = 10;
-            const confirmedBlockNumber = block && block.number && (block.number - CONFIRMATIONS) || null;
-            console.log("confirmedBlockNumber: " + confirmedBlockNumber);
-            const db = new Dexie(this.db.name);
-            db.version(this.db.version).stores(this.db.schemaDefinition);
-            for (const [address, coinInfo] of Object.entries(this.settings.coins)) {
-              if (coinInfo.sync && !this.sync.halt) {
-                // if (false) {
-                  await this.syncCoinTransfers({ provider, confirmedBlockNumber, db, address, symbol: coinInfo.symbol });
-                  await this.syncUniswapV2Pools({ provider, confirmedBlockNumber, db, address, symbol: coinInfo.symbol });
-                  await this.syncUniswapV3Pools({ provider, confirmedBlockNumber, db, address, symbol: coinInfo.symbol });
-                  await this.syncUniswapV2Trades({ provider, confirmedBlockNumber, db, address, symbol: coinInfo.symbol });
-                  await this.syncUniswapV3Trades({ provider, confirmedBlockNumber, db, address, symbol: coinInfo.symbol });
-                // } else {
-                // }
-              }
-            }
-            this.sync.section = null;
-            this.sync.halt = false;
-            db.close();
-            await this.loadCurrentData();
           },
           async syncCoinTransfers(context) {
             console.log("syncCoinTransfers: " + context.address + " " + context.symbol);
@@ -1286,9 +1287,8 @@
               }
               done = fromBlock >= context.confirmedBlockNumber;
             } while (!done && !this.sync.halt);
-            // console.log("newAccounts: " + JSON.stringify(newAccounts, null, 2));
-            await this.getENSNames(context, Object.keys(newAccounts));
-            await this.getBlockTimestamps(context, Object.keys(newBlocks));
+            await this.syncENSNames(context, Object.keys(newAccounts));
+            await this.syncBlockTimestamps(context, Object.keys(newBlocks));
             await context.db.cache.put({ objectName: context.address + "_transfers", object: transfers }).then (function() {
             }).catch(function(error) {
               console.log("error: " + error);
@@ -1349,7 +1349,7 @@
               }
             }
             // console.log("pools: " + JSON.stringify(pools, null, 2));
-            await this.getBlockTimestamps(context, Object.keys(newBlocks));
+            await this.syncBlockTimestamps(context, Object.keys(newBlocks));
             await context.db.cache.put({ objectName: context.address + '_uniswapv2pools', object: pools }).then (function() {
             }).catch(function(error) {
               console.log("error: " + error);
@@ -1411,7 +1411,7 @@
               }
             }
             // console.log("pools: " + JSON.stringify(pools, null, 2));
-            await this.getBlockTimestamps(context, Object.keys(newBlocks));
+            await this.syncBlockTimestamps(context, Object.keys(newBlocks));
             await context.db.cache.put({ objectName: context.address + '_uniswapv3pools', object: pools }).then (function() {
             }).catch(function(error) {
               console.log("error: " + error);
@@ -1492,7 +1492,7 @@
                 done = fromBlock >= context.confirmedBlockNumber;
               } while (!done && !this.sync.halt);
               // console.log("trades: " + JSON.stringify(trades, null, 2));
-              await this.getBlockTimestamps(context, Object.keys(newBlocks));
+              await this.syncBlockTimestamps(context, Object.keys(newBlocks));
               await context.db.cache.put({ objectName: poolAddress + '_uniswapv2trades', object: trades }).then (function() {
               }).catch(function(error) {
                 console.log("error: " + error);
@@ -1576,7 +1576,7 @@
                 done = fromBlock >= context.confirmedBlockNumber;
               } while (!done && !this.sync.halt);
               // console.log("trades: " + JSON.stringify(trades, null, 2));
-              await this.getBlockTimestamps(context, Object.keys(newBlocks));
+              await this.syncBlockTimestamps(context, Object.keys(newBlocks));
               await context.db.cache.put({ objectName: poolAddress + '_uniswapv3trades', object: trades }).then (function() {
               }).catch(function(error) {
                 console.log("error: " + error);
