@@ -220,7 +220,7 @@
                 <b-card no-header no-body class="m-0 mt-1 p-0 border-1">
                   <b-card-body class="m-0 p-0">
                     <font size="-2">
-                      <b-table small fixed striped sticky-header="200px" :fields="collectionsFilterFields" :items="getAllCollections" head-variant="light">
+                      <b-table small fixed striped sticky-header="200px" :fields="collectionsFilterFields" :items="getAllPools" head-variant="light">
                         <template #cell(select)="data">
                           <b-form-checkbox size="sm" :checked="(settings.filters['collections'] && settings.filters['collections'][data.item.collection]) ? 1 : 0" value="1" @change="filterChanged('collections', data.item.collection)"></b-form-checkbox>
                         </template>
@@ -620,7 +620,7 @@
             // { key: 'include', label: 'Include', sortable: true, thStyle: 'width: 10%;', tdClass: 'text-truncate' },
           ],
           db: {
-            name: "memecoindata089",
+            name: "memecoindata089a",
             version: 1,
             schemaDefinition: {
               cache: '&objectName',
@@ -677,7 +677,7 @@
             });
             return results;
           },
-          getAllCollections() {
+          getAllPools() {
             const collectionsMap = {};
             for (const token of this.filteredTransfers) {
               if (!(token.contract in collectionsMap)) {
@@ -1148,6 +1148,7 @@
             db.version(this.db.version).stores(this.db.schemaDefinition);
             for (const [address, coinInfo] of Object.entries(this.settings.coins)) {
               if (coinInfo.sync && !this.sync.halt) {
+                // TODO
                 await this.syncCoinTransfers({ provider, confirmedBlockNumber, db, address, symbol: coinInfo.symbol });
                 await this.syncUniswapV2Pools({ provider, confirmedBlockNumber, db, address, symbol: coinInfo.symbol });
                 await this.syncUniswapV3Pools({ provider, confirmedBlockNumber, db, address, symbol: coinInfo.symbol });
@@ -1294,6 +1295,31 @@
               console.log("error: " + error);
             });
           },
+          async getERC20TokenDetails(context, address) {
+            const results = { address };
+            const erc20 = new ethers.Contract(address, ERC20ABI, context.provider);
+            try {
+              results.symbol = await erc20.symbol();
+            } catch (e) {
+              console.log("getERC20TokenDetails ERROR - symbol - account: " + address + ", message: " + e.message);
+            }
+            try {
+              results.name = await erc20.name();
+            } catch (e) {
+              console.log("getERC20TokenDetails ERROR - name - account: " + address + ", message: " + e.message);
+            }
+            try {
+              results.decimals = ethers.BigNumber.from(await erc20.decimals()).toString();
+            } catch (e) {
+              console.log("getERC20TokenDetails ERROR - decimals - account: " + address + ", message: " + e.message);
+            }
+            try {
+              results.totalSupply = ethers.BigNumber.from(await erc20.totalSupply()).toString();
+            } catch (e) {
+              console.log("getERC20TokenDetails ERROR - totalSupply - account: " + address + ", message: " + e.message);
+            }
+            return results;
+          },
           async syncUniswapV2Pools(context) {
             console.log("syncUniswapV2Pools: " + context.address + " " + context.symbol);
             this.sync.completed = 0;
@@ -1330,9 +1356,11 @@
                     const poolAddress = ethers.utils.getAddress('0x' + event.data.substring(26, 66));
                     // console.log("poolAddress: " + poolAddress);
                     if (!(poolAddress in pools[event.blockNumber])) {
+                      const token0 = await this.getERC20TokenDetails(context, ethers.utils.getAddress('0x' + event.topics[1].substring(26)));
+                      const token1 = await this.getERC20TokenDetails(context, ethers.utils.getAddress('0x' + event.topics[2].substring(26)));
                       pools[event.blockNumber][poolAddress] = {
-                        token0: ethers.utils.getAddress('0x' + event.topics[1].substring(26)),
-                        token1: ethers.utils.getAddress('0x' + event.topics[2].substring(26)),
+                        token0,
+                        token1,
                         factory: event.address,
                         transactionHash: event.transactionHash,
                       };
@@ -1348,7 +1376,7 @@
                 console.log(e);
               }
             }
-            // console.log("pools: " + JSON.stringify(pools, null, 2));
+            console.log("pools: " + JSON.stringify(pools, null, 2));
             await this.syncBlockTimestamps(context, Object.keys(newBlocks));
             await context.db.cache.put({ objectName: context.address + '_uniswapv2pools', object: pools }).then (function() {
             }).catch(function(error) {
@@ -1390,9 +1418,11 @@
                     }
                     const poolAddress = ethers.utils.getAddress('0x' + event.data.substring(90, 130));
                     if (!(poolAddress in pools[event.blockNumber])) {
+                      const token0 = await this.getERC20TokenDetails(context, ethers.utils.getAddress('0x' + event.topics[1].substring(26)));
+                      const token1 = await this.getERC20TokenDetails(context, ethers.utils.getAddress('0x' + event.topics[2].substring(26)));
                       pools[event.blockNumber][poolAddress] = {
-                        token0: ethers.utils.getAddress('0x' + event.topics[1].substring(26)),
-                        token1: ethers.utils.getAddress('0x' + event.topics[2].substring(26)),
+                        token0,
+                        token1,
                         fee: ethers.BigNumber.from(event.topics[3]).toString(),
                         tickSpacing: ethers.BigNumber.from('0x' + event.data.substring(2, 66)).toString(),
                         factory: event.address,
@@ -1410,7 +1440,7 @@
                 console.log(e);
               }
             }
-            // console.log("pools: " + JSON.stringify(pools, null, 2));
+            console.log("pools: " + JSON.stringify(pools, null, 2));
             await this.syncBlockTimestamps(context, Object.keys(newBlocks));
             await context.db.cache.put({ objectName: context.address + '_uniswapv3pools', object: pools }).then (function() {
             }).catch(function(error) {
