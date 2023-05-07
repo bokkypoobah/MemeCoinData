@@ -851,60 +851,70 @@
             //   collectionFilter = this.settings.filters.collections;
             // }
             const results = [];
-            for (const [blockNumber, txIndexes] of Object.entries(this.transfers)) {
-              const timestamp = this.blockTimestamps[blockNumber] || null;
-              for (const [txIndex, txHashes] of Object.entries(txIndexes)) {
-                for (const [txHash, logIndexes] of Object.entries(txHashes)) {
-                  for (const [logIndex, txData] of Object.entries(logIndexes)) {
-                    results.push({ blockNumber, timestamp, txIndex, txHash, logIndex, coin: txData.address, from: txData.from, to: txData.to, tokens: txData.tokens });
-                  }
-                }
-              }
-            //   let include = true;
-            //   const collectionName = this.collections[token.contract] && this.collections[token.contract].name || null;
-            //   if (tokenFilterRegex) {
-            //     if (!tokenFilterRegex.test(token.name) && !tokenFilterRegex.test(token.tokenId.toString())) {
-            //       include = false;
-            //     }
-            //   }
-            //   if (include && searchCollectionLower) {
-            //     if (!(collectionName && collectionName.toLowerCase().includes(searchCollectionLower))) {
-            //       include = false;
-            //     }
-            //   }
-            //   if (include && groupFilter) {
-            //     const accountInfo = this.settings.accounts[token.owner] || {};
-            //     const group = accountInfo.group || "(blank)";
-            //     if (!(group in groupFilter)) {
-            //       include = false;
-            //     }
-            //   }
-            //   if (include && accountFilter) {
-            //     if (!(token.owner in accountFilter)) {
-            //       include = false;
-            //     }
-            //   }
-            //   if (include && collectionFilter) {
-            //     if (!(token.contract in collectionFilter)) {
-            //       include = false;
-            //     }
-            //   }
-            //   if (include) {
-            //     const ownerInfo = this.settings.accounts[token.owner] || {};
-            //     const ownerName = ownerInfo.name && (ownerInfo.name + ' ' + token.owner.substring(0, 8)) || token.owner.substring(0, 16);
-            //     results.push({
-            //       ...token,
-            //       ownerName,
-            //       collectionName,
-            //       lastSale: {
-            //         timestamp: token.lastSale && token.lastSale.timestamp || null,
-            //         amount: token.lastSale && token.lastSale.price && token.lastSale.price.amount && token.lastSale.price.amount.native || null,
-            //         currency: token.lastSale && token.lastSale.price && token.lastSale.price.currency && token.lastSale.price.currency.symbol || null,
-            //         amountInUSD: token.lastSale && token.lastSale.price && token.lastSale.price.amount && token.lastSale.price.amount.usd || null,
-            //       },
-            //     });
-            //   }
+            for (const [txHash, txInfo] of Object.entries(this.trades)) {
+              const timestamp = this.blockTimestamps[txInfo.blockNumber] || null;
+              // console.log(timestamp + " " + txHash);
+              results.push({
+                blockNumber: txInfo.blockNumber,
+                timestamp,
+                txIndex: txInfo.txIndex,
+              });
             }
+            console.log("results[0]: " + JSON.stringify(results && results[0] || {}));
+            // for (const [blockNumber, txIndexes] of Object.entries(this.transfers)) {
+            //   const timestamp = this.blockTimestamps[blockNumber] || null;
+            //   for (const [txIndex, txHashes] of Object.entries(txIndexes)) {
+            //     for (const [txHash, logIndexes] of Object.entries(txHashes)) {
+            //       for (const [logIndex, txData] of Object.entries(logIndexes)) {
+            //         results.push({ blockNumber, timestamp, txIndex, txHash, logIndex, coin: txData.address, from: txData.from, to: txData.to, tokens: txData.tokens });
+            //       }
+            //     }
+            //   }
+            // //   let include = true;
+            // //   const collectionName = this.collections[token.contract] && this.collections[token.contract].name || null;
+            // //   if (tokenFilterRegex) {
+            // //     if (!tokenFilterRegex.test(token.name) && !tokenFilterRegex.test(token.tokenId.toString())) {
+            // //       include = false;
+            // //     }
+            // //   }
+            // //   if (include && searchCollectionLower) {
+            // //     if (!(collectionName && collectionName.toLowerCase().includes(searchCollectionLower))) {
+            // //       include = false;
+            // //     }
+            // //   }
+            // //   if (include && groupFilter) {
+            // //     const accountInfo = this.settings.accounts[token.owner] || {};
+            // //     const group = accountInfo.group || "(blank)";
+            // //     if (!(group in groupFilter)) {
+            // //       include = false;
+            // //     }
+            // //   }
+            // //   if (include && accountFilter) {
+            // //     if (!(token.owner in accountFilter)) {
+            // //       include = false;
+            // //     }
+            // //   }
+            // //   if (include && collectionFilter) {
+            // //     if (!(token.contract in collectionFilter)) {
+            // //       include = false;
+            // //     }
+            // //   }
+            // //   if (include) {
+            // //     const ownerInfo = this.settings.accounts[token.owner] || {};
+            // //     const ownerName = ownerInfo.name && (ownerInfo.name + ' ' + token.owner.substring(0, 8)) || token.owner.substring(0, 16);
+            // //     results.push({
+            // //       ...token,
+            // //       ownerName,
+            // //       collectionName,
+            // //       lastSale: {
+            // //         timestamp: token.lastSale && token.lastSale.timestamp || null,
+            // //         amount: token.lastSale && token.lastSale.price && token.lastSale.price.amount && token.lastSale.price.amount.native || null,
+            // //         currency: token.lastSale && token.lastSale.price && token.lastSale.price.currency && token.lastSale.price.currency.symbol || null,
+            // //         amountInUSD: token.lastSale && token.lastSale.price && token.lastSale.price.amount && token.lastSale.price.amount.usd || null,
+            // //       },
+            // //     });
+            // //   }
+            // }
             return results;
           },
           filteredSortedTransfers() {
@@ -1636,7 +1646,7 @@
                           trades[txHash] = { blockNumber, txIndex, logs: {} };
                         }
                         for (const [logIndex, txData] of Object.entries(logIndexes)) {
-                          trades[txHash].logs[logIndex] = { poolAddress: null, ...txData };
+                          trades[txHash].logs[logIndex] = { type: 'tx', token: coinAddress, ...txData };
                         }
                       }
                     }
@@ -1663,7 +1673,7 @@
                               trades[txHash] = { blockNumber, txIndex, logs: {} };
                             }
                             for (const [logIndex, txData] of Object.entries(logIndexes)) {
-                              trades[txHash].logs[logIndex] = { poolAddress, ...txData };
+                              trades[txHash].logs[logIndex] = { type: 'us2', poolAddress, ...txData };
                             }
                           }
                         }
@@ -1694,7 +1704,7 @@
                               trades[txHash] = { blockNumber, txIndex, logs: {} };
                             }
                             for (const [logIndex, txData] of Object.entries(logIndexes)) {
-                              trades[txHash].logs[logIndex] = { poolAddress, ...txData };
+                              trades[txHash].logs[logIndex] = { type: 'us3', poolAddress, ...txData };
                             }
                           }
                         }
