@@ -245,9 +245,15 @@
                 {{ parseInt(data.index) + ((settings.transfersTable.currentPage - 1) * settings.transfersTable.pageSize) + 1 }}
               </template>
               <template #cell(timestamp)="data">
-                <b-link :href="'https://etherscan.io/tx/' + data.item.txHash" v-b-popover.hover.bottom="'View tx in etherscan.io'" target="_blank">
-                  {{ formatTimestamp(data.item.timestamp) }}
-                </b-link>
+                <font size="-1">
+                  <b-link :href="'https://etherscan.io/tx/' + data.item.txHash" v-b-popover.hover.bottom="'View tx in etherscan.io'" target="_blank">
+                    {{ formatTimestamp(data.item.timestamp) }}
+                  </b-link>
+                </font>
+                <br />
+                <font size="-2">
+                  {{ data.item.blockNumber + ':' + data.item.txHash }}
+                </font>
               </template>
               <template #cell(info)="data">
                 <font size="-2"><pre>{{ data.item.logs }}</pre></font>
@@ -858,6 +864,7 @@
             for (const [txHash, txInfo] of Object.entries(this.trades)) {
               const timestamp = this.blockTimestamps[txInfo.blockNumber] || null;
               results.push({
+                txHash,
                 blockNumber: txInfo.blockNumber,
                 timestamp,
                 txIndex: txInfo.txIndex,
