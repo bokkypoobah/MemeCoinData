@@ -1312,6 +1312,7 @@
               }
               done = fromBlock >= context.confirmedBlockNumber;
             } while (!done && !this.sync.halt);
+            newAccounts[coinbase] = null;
             await this.syncENSNames(context, Object.keys(newAccounts));
             await this.syncBlockTimestamps(context, Object.keys(newBlocks));
             await context.db.cache.put({ objectName: context.address + "_transfers", object: transfers }).then (function() {
@@ -1730,7 +1731,7 @@
             db.close();
             // console.log("Loaded " + count + " events");
             // console.log("Loaded " + Object.keys(pools).length + " Uniswap V2 & V3 pools");
-            // console.log(JSON.stringify(pools, null, 2));
+            console.log("loadCurrentData - pools: " + JSON.stringify(pools, null, 2));
             console.log("loadCurrentData - trades['0x055cde7dfb6866abf5e6986dcce438061b945a17d72ad61a2ffeb3f6029765c5']: " + JSON.stringify(trades["0x055cde7dfb6866abf5e6986dcce438061b945a17d72ad61a2ffeb3f6029765c5"], null, 2));
             this.trades = trades;
             this.transfers = transfers;
