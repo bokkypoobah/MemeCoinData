@@ -1186,7 +1186,7 @@
                 await this.syncUniswapV3Pools(context);
                 await this.syncUniswapV2Trades(context);
                 await this.syncUniswapV3Trades(context);
-                // await this.syncUniswapAltTokenTransfers(context);
+                await this.syncUniswapAltTokenTransfers(context);
               }
             }
             this.sync.section = null;
@@ -1651,7 +1651,7 @@
             // console.log("syncCoinTransfers: " + context.address + " " + context.symbol);
             this.sync.completed = 0;
             this.sync.total = null;
-            this.sync.section = context.symbol + ' Txs';
+            this.sync.section = context.symbol + ' AltTknTxs';
             const dataObject = await context.db.cache.where("objectName").equals(context.address + "_transfers").toArray();
             const transfers = dataObject.length == 1 ? dataObject[0].object : {};
             const blockNumbers = Object.keys(transfers).sort((a, b) => { return b - a });
@@ -1664,65 +1664,97 @@
             let newTransfers = 0;
             const newBlocks = {};
             const newAccounts = {};
-            do {
-              if (batchSize > 1000 && parseInt(fromBlock) + batchSize > context.confirmedBlockNumber) {
-                batchSize = parseInt((context.confirmedBlockNumber - fromBlock) * 0.75);
-              }
-              batchSize = (batchSize > 10) ? batchSize: 10; // avoid divide by 0
-              let toBlock = (parseInt(fromBlock) + batchSize < context.confirmedBlockNumber) ? (parseInt(fromBlock) + batchSize) : context.confirmedBlockNumber;
-              const transferTopics = [ '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef', null, null ];
-              try {
-                const logs = await context.provider.getLogs({ address: context.address, fromBlock, toBlock, topics: transferTopics });
-                for (const event of logs) {
-                  if (!event.removed) {
-                    let from, to, tokens;
-                    if (event.topics.length == 4) {
-                      from = ethers.utils.getAddress('0x' + event.topics[1].substring(26));
-                      to = ethers.utils.getAddress('0x' + event.topics[2].substring(26));
-                      tokens = ethers.BigNumber.from(event.topics[3]).toString();
-                    } else if (event.topics.length == 3) {
-                      from = ethers.utils.getAddress('0x' + event.topics[1].substring(26));
-                      to = ethers.utils.getAddress('0x' + event.topics[2].substring(26));
-                      tokens = ethers.BigNumber.from(event.data).toString();
-                    } else if (event.topics.length == 1) {
-                      from = ethers.utils.getAddress('0x' + event.data.substring(26, 66));
-                      to = ethers.utils.getAddress('0x' + event.data.substring(90, 130));
-                      tokens = ethers.BigNumber.from('0x' + event.data.substring(130, 193)).toString();
-                    }
-                    if (!(event.blockNumber in this.blockTimestamps) && !(event.blockNumber in newBlocks)) {
-                      newBlocks[event.blockNumber] = null;
-                    }
-                    if (!(from in this.ensMap) && !(from in newAccounts)) {
-                      newAccounts[from] = null;
-                    }
-                    if (!(to in this.ensMap) && !(to in newAccounts)) {
-                      newAccounts[to] = null;
-                    }
-                    if (!(event.blockNumber in transfers)) {
-                      transfers[event.blockNumber] = {};
-                    }
-                    if (!(event.transactionIndex in transfers[event.blockNumber])) {
-                      transfers[event.blockNumber][event.transactionIndex] = {};
-                    }
-                    if (!(event.transactionHash in transfers[event.blockNumber][event.transactionIndex])) {
-                      transfers[event.blockNumber][event.transactionIndex][event.transactionHash] = {};
-                    }
-                    if (!(event.logIndex in transfers[event.blockNumber][event.transactionIndex][event.transactionHash])) {
-                      transfers[event.blockNumber][event.transactionIndex][event.transactionHash][event.logIndex] = { from, to, tokens };
-                      newTransfers++;
+
+            const poolsToProcess = [];
+            for (const [coinAddress, coinInfo] of Object.entries(this.settings.coins)) {
+              if (coinInfo.include) {
+                console.log("syncUniswapAltTokenTransfers: " + coinAddress + " " + coinInfo.symbol + " " + coinInfo.name);
+                const uniswapV2PoolsDataObject = await context.db.cache.where("objectName").equals(coinAddress + "_uniswapv2pools").toArray();
+                if (uniswapV2PoolsDataObject.length == 1) {
+                  for (const [blockNumber, poolsCreatedInBlock] of Object.entries(uniswapV2PoolsDataObject[0].object)) {
+                    for (const [poolAddress, poolInfo] of Object.entries(poolsCreatedInBlock)) {
+                      const altToken = poolInfo.token0.address == coinAddress ? poolInfo.token1.address : poolInfo.token0.address;
+                      poolsToProcess.push({ coinAddress, poolAddress, type: "us2", altToken, created: blockNumber });
                     }
                   }
-                  count++;
                 }
-                this.sync.completed = count;
-                console.log(moment().format("HH:mm:ss") + " syncCoinTransfers " + context.address.substring(0, 10) + " " + context.symbol + " #" + fromBlock + "-" + toBlock + " [" + (toBlock - fromBlock) + "/" + batchSize + "] newTransfers: " + newTransfers);
-                fromBlock = toBlock;
-              } catch (e) {
-                console.log(e);
-                batchSize = parseInt(batchSize * BATCHREDUCTIONFACTOR);
+                const uniswapV3PoolsDataObject = await context.db.cache.where("objectName").equals(coinAddress + "_uniswapv3pools").toArray();
+                if (uniswapV3PoolsDataObject.length == 1) {
+                  for (const [blockNumber, poolsCreatedInBlock] of Object.entries(uniswapV3PoolsDataObject[0].object)) {
+                    for (const [poolAddress, poolInfo] of Object.entries(poolsCreatedInBlock)) {
+                      const altToken = poolInfo.token0.address == coinAddress ? poolInfo.token1.address : poolInfo.token0.address;
+                      poolsToProcess.push({ coinAddress, poolAddress, type: "us3", altToken, created: blockNumber });
+                    }
+                  }
+                }
               }
-              done = fromBlock >= context.confirmedBlockNumber;
-            } while (!done && !this.sync.halt);
+            }
+            console.log("poolsToProcess: " + JSON.stringify(poolsToProcess, null, 2));
+
+
+            // TODO
+            return;
+            for (const poolInfo of poolsToProcess) {
+              do {
+                if (batchSize > 1000 && parseInt(fromBlock) + batchSize > context.confirmedBlockNumber) {
+                  batchSize = parseInt((context.confirmedBlockNumber - fromBlock) * 0.75);
+                }
+                batchSize = (batchSize > 10) ? batchSize: 10; // avoid divide by 0
+                let toBlock = (parseInt(fromBlock) + batchSize < context.confirmedBlockNumber) ? (parseInt(fromBlock) + batchSize) : context.confirmedBlockNumber;
+                const transferTopics = [ '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef', null, null ];
+                try {
+                  const logs = await context.provider.getLogs({ address: context.address, fromBlock, toBlock, topics: transferTopics });
+                  for (const event of logs) {
+                    if (!event.removed) {
+                      let from, to, tokens;
+                      if (event.topics.length == 4) {
+                        from = ethers.utils.getAddress('0x' + event.topics[1].substring(26));
+                        to = ethers.utils.getAddress('0x' + event.topics[2].substring(26));
+                        tokens = ethers.BigNumber.from(event.topics[3]).toString();
+                      } else if (event.topics.length == 3) {
+                        from = ethers.utils.getAddress('0x' + event.topics[1].substring(26));
+                        to = ethers.utils.getAddress('0x' + event.topics[2].substring(26));
+                        tokens = ethers.BigNumber.from(event.data).toString();
+                      } else if (event.topics.length == 1) {
+                        from = ethers.utils.getAddress('0x' + event.data.substring(26, 66));
+                        to = ethers.utils.getAddress('0x' + event.data.substring(90, 130));
+                        tokens = ethers.BigNumber.from('0x' + event.data.substring(130, 193)).toString();
+                      }
+                      if (!(event.blockNumber in this.blockTimestamps) && !(event.blockNumber in newBlocks)) {
+                        newBlocks[event.blockNumber] = null;
+                      }
+                      if (!(from in this.ensMap) && !(from in newAccounts)) {
+                        newAccounts[from] = null;
+                      }
+                      if (!(to in this.ensMap) && !(to in newAccounts)) {
+                        newAccounts[to] = null;
+                      }
+                      if (!(event.blockNumber in transfers)) {
+                        transfers[event.blockNumber] = {};
+                      }
+                      if (!(event.transactionIndex in transfers[event.blockNumber])) {
+                        transfers[event.blockNumber][event.transactionIndex] = {};
+                      }
+                      if (!(event.transactionHash in transfers[event.blockNumber][event.transactionIndex])) {
+                        transfers[event.blockNumber][event.transactionIndex][event.transactionHash] = {};
+                      }
+                      if (!(event.logIndex in transfers[event.blockNumber][event.transactionIndex][event.transactionHash])) {
+                        transfers[event.blockNumber][event.transactionIndex][event.transactionHash][event.logIndex] = { from, to, tokens };
+                        newTransfers++;
+                      }
+                    }
+                    count++;
+                  }
+                  this.sync.completed = count;
+                  console.log(moment().format("HH:mm:ss") + " syncCoinTransfers " + context.address.substring(0, 10) + " " + context.symbol + " #" + fromBlock + "-" + toBlock + " [" + (toBlock - fromBlock) + "/" + batchSize + "] newTransfers: " + newTransfers);
+                  fromBlock = toBlock;
+                } catch (e) {
+                  console.log(e);
+                  batchSize = parseInt(batchSize * BATCHREDUCTIONFACTOR);
+                }
+                done = fromBlock >= context.confirmedBlockNumber;
+              } while (!done && !this.sync.halt);
+            }
             newAccounts[this.coinbase] = null;
             await this.syncENSNames(context, Object.keys(newAccounts));
             await this.syncBlockTimestamps(context, Object.keys(newBlocks));
@@ -1822,8 +1854,8 @@
             db.close();
             // console.log("Loaded " + count + " events");
             // console.log("Loaded " + Object.keys(pools).length + " Uniswap V2 & V3 pools");
-            console.log("loadCurrentData - pools: " + JSON.stringify(pools, null, 2));
-            console.log("loadCurrentData - trades['0x055cde7dfb6866abf5e6986dcce438061b945a17d72ad61a2ffeb3f6029765c5']: " + JSON.stringify(trades["0x055cde7dfb6866abf5e6986dcce438061b945a17d72ad61a2ffeb3f6029765c5"], null, 2));
+            // console.log("loadCurrentData - pools: " + JSON.stringify(pools, null, 2));
+            // console.log("loadCurrentData - trades['0x055cde7dfb6866abf5e6986dcce438061b945a17d72ad61a2ffeb3f6029765c5']: " + JSON.stringify(trades["0x055cde7dfb6866abf5e6986dcce438061b945a17d72ad61a2ffeb3f6029765c5"], null, 2));
             this.trades = trades;
             this.transfers = transfers;
             this.pools = pools;
