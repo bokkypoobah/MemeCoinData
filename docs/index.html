@@ -1672,23 +1672,17 @@
                       for (const [blockNumber, txIndexes] of Object.entries(tradesDataObject[0].object)) {
                         for (const [txIndex, txHashes] of Object.entries(txIndexes)) {
                           for (const [txHash, logIndexes] of Object.entries(txHashes)) {
-                            // if (txHash == "0x055cde7dfb6866abf5e6986dcce438061b945a17d72ad61a2ffeb3f6029765c5") {
-                              // console.log("v2: " + JSON.stringify(txHash));
-                              const logs = {};
-                              for (const [logIndex, txData] of Object.entries(logIndexes)) {
-                                // console.log(poolAddress.substring(0, 12) + " " + blockNumber + "/" + txIndex + "/" + txHash + "/" + logIndex + " => " + JSON.stringify(txData));
-                                logs[logIndex] = {
-                                  poolAddress,
-                                  ...txData,
-                                };
-                              }
-                              trades[txHash] = {
-                                blockNumber,
-                                txIndex,
-                                logs,
-                              };
+                            const logs = {};
+                            for (const [logIndex, txData] of Object.entries(logIndexes)) {
+                              // console.log(poolAddress.substring(0, 12) + " " + blockNumber + "/" + txIndex + "/" + txHash + "/" + logIndex + " => " + JSON.stringify(txData));
+                              logs[logIndex] = { poolAddress, ...txData };
                             }
-                          // }
+                            if (trades[txHash]) {
+                              trades[txHash].logs = { ...trades[txHash].logs, ...logs };
+                            } else {
+                              trades[txHash] = { blockNumber, txIndex, logs };
+                            }
+                          }
                         }
                       }
                     }
@@ -1715,56 +1709,15 @@
                       for (const [blockNumber, txIndexes] of Object.entries(tradesDataObject[0].object)) {
                         for (const [txIndex, txHashes] of Object.entries(txIndexes)) {
                           for (const [txHash, logIndexes] of Object.entries(txHashes)) {
-                            // if (txHash == "0x055cde7dfb6866abf5e6986dcce438061b945a17d72ad61a2ffeb3f6029765c5") {
-                              // console.log("v3: " + JSON.stringify(txHash));
-                              const logs = {};
-                              for (const [logIndex, txData] of Object.entries(logIndexes)) {
-                                // console.log(poolAddress.substring(0, 12) + " " + blockNumber + "/" + txIndex + "/" + txHash + "/" + logIndex + " => " + JSON.stringify(txData));
-                                logs[logIndex] = {
-                                  poolAddress,
-                                  ...txData,
-                                };
-                              }
-                              if (trades[txHash]) {
-                                // console.log("v3 - v2 trade found");
-                                trades[txHash].logs = { ...trades[txHash].logs, ...logs };
-                              } else {
-                                // console.log("v3 - v2 trade not found");
-                                trades[txHash] = {
-                                  blockNumber,
-                                  txIndex,
-                                  logs,
-                                };
-                              }
-                            // }
-
-                            // for (const [logIndex, txData] of Object.entries(logIndexes)) {
-                            //   // console.log(poolAddress.substring(0, 12) + " " + blockNumber + "/" + txIndex + "/" + txHash + "/" + logIndex + " => " + JSON.stringify(txData));
-                            // }
-                            // const logIndexes = trades[txHash] && trades[txHash].logIndexes || {};
-                            // console.log("logIndexes: " + JSON.stringify(logIndexes));
-
-
-
-                            if (false) {
-                              let newLogIndexes = {};
-                              if (trades[txHash]) {
-                                for (const [logIndex, txData] of Object.entries(trades[txHash].logIndexes)) {
-                              //     // console.log("UniswapV2: " + logIndex + " " + JSON.stringify(txData));
-                                  newLogIndexes[logIndex] = { poolAddress, txData };
-                                }
-                              } else {
-                                trades[txHash] = {
-                                  // poolAddress,
-                                  blockNumber,
-                                  txIndex,
-                                  logIndexes,
-                                };
-                              }
-                              for (const [logIndex, txData] of Object.entries(logIndexes)) {
-                              //   // console.log("UniswapV3: " + logIndex + " " + JSON.stringify(txData));
-                                newLogIndexes[logIndex] = { poolAddress, txData };
-                              }
+                            const logs = {};
+                            for (const [logIndex, txData] of Object.entries(logIndexes)) {
+                              // console.log(poolAddress.substring(0, 12) + " " + blockNumber + "/" + txIndex + "/" + txHash + "/" + logIndex + " => " + JSON.stringify(txData));
+                              logs[logIndex] = { poolAddress, ...txData };
+                            }
+                            if (trades[txHash]) {
+                              trades[txHash].logs = { ...trades[txHash].logs, ...logs };
+                            } else {
+                              trades[txHash] = { blockNumber, txIndex, logs };
                             }
                           }
                         }
