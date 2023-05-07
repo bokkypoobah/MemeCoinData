@@ -1630,33 +1630,14 @@
                 const transfersDataObject = await db.cache.where("objectName").equals(coinAddress + "_transfers").toArray();
                 if (transfersDataObject.length == 1) {
                   for (const [blockNumber, txIndexes] of Object.entries(transfersDataObject[0].object)) {
-                    // if (!(blockNumber in transfers)) {
-                    //   transfers[blockNumber] = {};
-                    // }
                     for (const [txIndex, txHashes] of Object.entries(txIndexes)) {
-                      // if (!(txIndex in transfers[blockNumber])) {
-                      //   transfers[blockNumber][txIndex] = {};
-                      // }
                       for (const [txHash, logIndexes] of Object.entries(txHashes)) {
-                        // if (!(txHash in transfers[blockNumber][txIndex])) {
-                        //   transfers[blockNumber][txIndex][txHash] = {};
-                        // }
                         if (!trades[txHash]) {
                           trades[txHash] = { blockNumber, txIndex, logs: {} };
                         }
                         for (const [logIndex, txData] of Object.entries(logIndexes)) {
-                        //   // console.log(txHash + " => " + JSON.stringify({ address: coinAddress, ...txData }));
-                        //   // if (!(logIndex in transfers[blockNumber][txIndex][txHash])) {
-                        //   //   transfers[blockNumber][txIndex][txHash][logIndex] = { address: coinAddress, ...txData };
-                        //   //   count++;
-                        //   // }
                           trades[txHash].logs[logIndex] = { poolAddress: null, ...txData };
                         }
-                        // if (trades[txHash]) {
-                        //   trades[txHash].logs = { ...trades[txHash].logs, ...logs };
-                        // } else {
-                        //   trades[txHash] = { blockNumber, txIndex, logs };
-                        // }
                       }
                     }
                   }
@@ -1682,14 +1663,8 @@
                               trades[txHash] = { blockNumber, txIndex, logs: {} };
                             }
                             for (const [logIndex, txData] of Object.entries(logIndexes)) {
-                              // console.log(poolAddress.substring(0, 12) + " " + blockNumber + "/" + txIndex + "/" + txHash + "/" + logIndex + " => " + JSON.stringify(txData));
                               trades[txHash].logs[logIndex] = { poolAddress, ...txData };
                             }
-                            // if (trades[txHash]) {
-                            //   trades[txHash].logs = { ...trades[txHash].logs, ...logs };
-                            // } else {
-                            //   trades[txHash] = { blockNumber, txIndex, logs };
-                            // }
                           }
                         }
                       }
@@ -1719,14 +1694,8 @@
                               trades[txHash] = { blockNumber, txIndex, logs: {} };
                             }
                             for (const [logIndex, txData] of Object.entries(logIndexes)) {
-                              // console.log(poolAddress.substring(0, 12) + " " + blockNumber + "/" + txIndex + "/" + txHash + "/" + logIndex + " => " + JSON.stringify(txData));
                               trades[txHash].logs[logIndex] = { poolAddress, ...txData };
                             }
-                            // if (trades[txHash]) {
-                            //   trades[txHash].logs = { ...trades[txHash].logs, ...logs };
-                            // } else {
-                            //   trades[txHash] = { blockNumber, txIndex, logs };
-                            // }
                           }
                         }
                       }
