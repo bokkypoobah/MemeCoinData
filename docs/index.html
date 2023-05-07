@@ -1312,7 +1312,7 @@
               }
               done = fromBlock >= context.confirmedBlockNumber;
             } while (!done && !this.sync.halt);
-            newAccounts[coinbase] = null;
+            newAccounts[this.coinbase] = null;
             await this.syncENSNames(context, Object.keys(newAccounts));
             await this.syncBlockTimestamps(context, Object.keys(newBlocks));
             await context.db.cache.put({ objectName: context.address + "_transfers", object: transfers }).then (function() {
