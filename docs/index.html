@@ -252,7 +252,7 @@
                 </font>
                 <br />
                 <font size="-2">
-                  {{ data.item.blockNumber + ':' + data.item.txHash }}
+                  {{ data.item.blockNumber + ':' + data.item.txIndex + ':' + data.item.txHash }}
                 </font>
               </template>
               <template #cell(info)="data">
@@ -1687,7 +1687,7 @@
                         blockNumber,
                         type: "UniswapV2Pool"
                       };
-                      for (const [blockNumber, txIndexes] of Object.entries(tradesDataObject[0].object)) {
+                      for (const [blockNumber, txIndexes] of Object.entries(tradesData)) {
                         for (const [txIndex, txHashes] of Object.entries(txIndexes)) {
                           for (const [txHash, logIndexes] of Object.entries(txHashes)) {
                             if (!trades[txHash]) {
@@ -1718,7 +1718,7 @@
                         blockNumber,
                         type: "UniswapV3Pool",
                       };
-                      for (const [blockNumber, txIndexes] of Object.entries(tradesDataObject[0].object)) {
+                      for (const [blockNumber, txIndexes] of Object.entries(tradesData)) {
                         for (const [txIndex, txHashes] of Object.entries(txIndexes)) {
                           for (const [txHash, logIndexes] of Object.entries(txHashes)) {
                             if (!trades[txHash]) {
