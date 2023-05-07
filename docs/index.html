@@ -249,6 +249,9 @@
                   {{ formatTimestamp(data.item.timestamp) }}
                 </b-link>
               </template>
+              <template #cell(info)="data">
+                <font size="-2"><pre>{{ data.item.logs }}</pre></font>
+              </template>
               <template #cell(from)="data">
                 <b-link :href="'https://etherscan.io/address/' + data.item.from" v-b-popover.hover.bottom="'View account in etherscan.io'" target="_blank">
                   {{ ensOrAddress(data.item.from) }}
@@ -587,10 +590,11 @@
             { key: 'number', label: '#', sortable: false, thStyle: 'width: 5%;', tdClass: 'text-truncate' },
             // { key: 'blockNumber', label: 'Block Number', sortable: false, thStyle: 'width: 15%;', tdClass: 'text-truncate' },
             { key: 'timestamp', label: 'When', sortable: false, thStyle: 'width: 15%;', tdClass: 'text-truncate' },
-            { key: 'coin', label: 'Coin', sortable: false, thStyle: 'width: 20%;', tdClass: 'text-truncate' },
-            { key: 'from', label: 'From', sortable: false, thStyle: 'width: 20%;', tdClass: 'text-truncate' },
-            { key: 'to', label: 'To', sortable: false, thStyle: 'width: 20%;', tdClass: 'text-truncate' },
-            { key: 'tokens', label: 'Tokens', sortable: false, thStyle: 'width: 20%;', tdClass: 'text-truncate' },
+            { key: 'info', label: 'Info', sortable: false, thStyle: 'width: 80%;', tdClass: 'text-truncate' },
+            // { key: 'coin', label: 'Coin', sortable: false, thStyle: 'width: 20%;', tdClass: 'text-truncate' },
+            // { key: 'from', label: 'From', sortable: false, thStyle: 'width: 20%;', tdClass: 'text-truncate' },
+            // { key: 'to', label: 'To', sortable: false, thStyle: 'width: 20%;', tdClass: 'text-truncate' },
+            // { key: 'tokens', label: 'Tokens', sortable: false, thStyle: 'width: 20%;', tdClass: 'text-truncate' },
           ],
           tokensFields: [
             { key: 'number', label: '#', sortable: false, thStyle: 'width: 5%;', tdClass: 'text-truncate' },
@@ -853,12 +857,12 @@
             const results = [];
             for (const [txHash, txInfo] of Object.entries(this.trades)) {
               const timestamp = this.blockTimestamps[txInfo.blockNumber] || null;
-              // console.log(timestamp + " " + txHash);
               results.push({
                 blockNumber: txInfo.blockNumber,
                 timestamp,
                 txIndex: txInfo.txIndex,
                 coin: txInfo.token,
+                logs: txInfo.logs,
               });
             }
             console.log("results[0]: " + JSON.stringify(results && results[0] || {}));
@@ -922,11 +926,19 @@
             let results = this.filteredTransfers;
             if (this.settings.transfersTable.sortOption == 'blocknumberasc') {
               results.sort((a, b) => {
-                return a.blockNumber - b.blockNumber;
+                if (a.blockNumber == b.blockNumber) {
+                  return a.txIndex - b.txIndex;
+                } else {
+                  return a.blockNumber - b.blockNumber;
+                }
               });
             } else if (this.settings.transfersTable.sortOption == 'blocknumberdsc') {
               results.sort((a, b) => {
-                return b.blockNumber - a.blockNumber;
+                if (a.blockNumber == b.blockNumber) {
+                  return b.txIndex - a.txIndex;
+                } else {
+                  return b.blockNumber - a.blockNumber;
+                }
               });
             }
             return results;
