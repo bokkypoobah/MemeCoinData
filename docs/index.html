@@ -535,6 +535,7 @@
 
           transfers: {},
           pools: {},
+          trades: {},
           blockTimestamps: {},
           collections: {},
           tokens: [],
@@ -834,6 +835,7 @@
             return this.filteredSortedAccounts.slice((this.settings.accountsTable.currentPage - 1) * this.settings.accountsTable.pageSize, this.settings.accountsTable.currentPage * this.settings.accountsTable.pageSize);
           },
           filteredTransfers() {
+            // console.log("trades: " + JSON.stringify(this.trades, null, 2));
             // const tokenFilterRegex = this.settings.tokensTable.tokenFilter && this.settings.tokensTable.tokenFilter.length > 0 ? new RegExp(this.settings.tokensTable.tokenFilter, 'i') : null;
             // const searchCollectionLower = this.settings.tokensTable.collectionfilter && this.settings.tokensTable.collectionfilter.toLowerCase() || null;
             // let groupFilter = null;
@@ -1143,12 +1145,11 @@
             const block = await provider.getBlock();
             const CONFIRMATIONS = 10;
             const confirmedBlockNumber = block && block.number && (block.number - CONFIRMATIONS) || null;
-            console.log("confirmedBlockNumber: " + confirmedBlockNumber);
+            // console.log("confirmedBlockNumber: " + confirmedBlockNumber);
             const db = new Dexie(this.db.name);
             db.version(this.db.version).stores(this.db.schemaDefinition);
             for (const [address, coinInfo] of Object.entries(this.settings.coins)) {
               if (coinInfo.sync && !this.sync.halt) {
-                // TODO
                 await this.syncCoinTransfers({ provider, confirmedBlockNumber, db, address, symbol: coinInfo.symbol });
                 await this.syncUniswapV2Pools({ provider, confirmedBlockNumber, db, address, symbol: coinInfo.symbol });
                 await this.syncUniswapV3Pools({ provider, confirmedBlockNumber, db, address, symbol: coinInfo.symbol });
@@ -1468,6 +1469,7 @@
               const tradesDataObject = await context.db.cache.where("objectName").equals(poolAddress + '_uniswapv2trades').toArray();
               const trades = tradesDataObject.length == 1 ? tradesDataObject[0].object : {};
               const blockNumbers = Object.keys(trades).sort((a, b) => { return b - a });
+              // TODO: startBlock can set to the pool creation blockNumber
               const startBlock = blockNumbers.length > 0 ? parseInt(blockNumbers[0]) + 1: 0;
               let batchSize = 100000000;
               const BATCHREDUCTIONFACTOR = 0.50;
@@ -1550,6 +1552,7 @@
               const tradesDataObject = await context.db.cache.where("objectName").equals(poolAddress + '_uniswapv3trades').toArray();
               const trades = tradesDataObject.length == 1 ? tradesDataObject[0].object : {};
               const blockNumbers = Object.keys(trades).sort((a, b) => { return b - a });
+              // TODO: startBlock can set to the pool creation blockNumber
               const startBlock = blockNumbers.length > 0 ? parseInt(blockNumbers[0]) + 1: 0;
               let batchSize = 100000000;
               const BATCHREDUCTIONFACTOR = 0.50;
@@ -1616,6 +1619,7 @@
           async loadCurrentData() {
             const db = new Dexie(this.db.name);
             db.version(this.db.version).stores(this.db.schemaDefinition);
+            const trades = {};
             const transfers = {};
             const pools = {};
             let count = 0;
@@ -1689,6 +1693,8 @@
             // console.log("Loaded " + count + " events");
             // console.log("Loaded " + Object.keys(pools).length + " Uniswap V2 & V3 pools");
             // console.log(JSON.stringify(pools, null, 2));
+            console.log("loadCurrentData - trades: " + JSON.stringify(trades));
+            this.trades = trades;
             this.transfers = transfers;
             this.pools = pools;
           },
