@@ -872,7 +872,7 @@
                 logs: txInfo.logs,
               });
             }
-            console.log("results[0]: " + JSON.stringify(results && results[0] || {}));
+            // console.log("results[0]: " + JSON.stringify(results && results[0] || {}));
             // for (const [blockNumber, txIndexes] of Object.entries(this.transfers)) {
             //   const timestamp = this.blockTimestamps[blockNumber] || null;
             //   for (const [txIndex, txHashes] of Object.entries(txIndexes)) {
@@ -1244,7 +1244,7 @@
             });
           },
           async syncCoinTransfers(context) {
-            console.log("syncCoinTransfers: " + context.address + " " + context.symbol);
+            // console.log("syncCoinTransfers: " + context.address + " " + context.symbol);
             this.sync.completed = 0;
             this.sync.total = null;
             this.sync.section = context.symbol + ' Txs';
@@ -1311,7 +1311,7 @@
                   count++;
                 }
                 this.sync.completed = count;
-                console.log(moment().format("HH:mm:ss") + " from: " + fromBlock + ", to: " + toBlock + ", range: " + (toBlock - fromBlock) + ", batchSize: " + batchSize + ", newTransfers: " + newTransfers);
+                console.log(moment().format("HH:mm:ss") + " syncCoinTransfers " + context.address.substring(0, 10) + " " + context.symbol + " #" + fromBlock + "-" + toBlock + " [" + (toBlock - fromBlock) + "/" + batchSize + "] newTransfers: " + newTransfers);
                 fromBlock = toBlock;
               } catch (e) {
                 console.log(e);
@@ -1353,7 +1353,7 @@
             return results;
           },
           async syncUniswapV2Pools(context) {
-            console.log("syncUniswapV2Pools: " + context.address + " " + context.symbol);
+            // console.log("syncUniswapV2Pools: " + context.address + " " + context.symbol);
             this.sync.completed = 0;
             this.sync.total = null;
             this.sync.section = context.symbol + " UniswapV2Pools";
@@ -1378,7 +1378,6 @@
                 const logs = await context.provider.getLogs({ address: UNISWAPV2FACTORY, fromBlock, toBlock, topics });
                 for (const event of logs) {
                   if (!event.removed) {
-                    // console.log("event: " + JSON.stringify(event, null, 2));
                     if (!(event.blockNumber in this.blockTimestamps) && !(event.blockNumber in newBlocks)) {
                       newBlocks[event.blockNumber] = null;
                     }
@@ -1386,7 +1385,6 @@
                       pools[event.blockNumber] = {};
                     }
                     const poolAddress = ethers.utils.getAddress('0x' + event.data.substring(26, 66));
-                    // console.log("poolAddress: " + poolAddress);
                     if (!(poolAddress in pools[event.blockNumber])) {
                       const token0 = await this.getERC20TokenDetails(context, ethers.utils.getAddress('0x' + event.topics[1].substring(26)));
                       const token1 = await this.getERC20TokenDetails(context, ethers.utils.getAddress('0x' + event.topics[2].substring(26)));
@@ -1402,7 +1400,7 @@
                   count++;
                 }
                 this.sync.completed = count;
-                console.log(moment().format("HH:mm:ss") + " Pool " + (topicsIndex == 0 ? ("*/" + context.symbol) : (context.symbol + "/*")) + " from: " + fromBlock + ", to: " + toBlock + ", range: " + (toBlock - fromBlock) + ", newPools: " + newPools);
+                console.log(moment().format("HH:mm:ss") + " syncUniswapV2Pools " + (topicsIndex == 0 ? ("*/" + context.symbol) : (context.symbol + "/*")) + " #" + fromBlock + "-" + toBlock + " [" + (toBlock - fromBlock) + "] newPools: " + newPools);
                 fromBlock = toBlock;
               } catch (e) {
                 console.log(e);
@@ -1416,7 +1414,7 @@
             });
           },
           async syncUniswapV3Pools(context) {
-            console.log("syncUniswapV3Pools: " + context.address + " " + context.symbol);
+            // console.log("syncUniswapV3Pools: " + context.address + " " + context.symbol);
             this.sync.completed = 0;
             this.sync.total = null;
             this.sync.section = context.symbol + " UniswapV3Pools";
@@ -1466,7 +1464,7 @@
                   count++;
                 }
                 this.sync.completed = count;
-                console.log(moment().format("HH:mm:ss") + " Pool " + (topicsIndex == 0 ? ("*/" + context.symbol) : (context.symbol + "/*")) + " from: " + fromBlock + ", to: " + toBlock + ", range: " + (toBlock - fromBlock) + ", newPools: " + newPools);
+                console.log(moment().format("HH:mm:ss") + " syncUniswapV3Pools " + (topicsIndex == 0 ? ("*/" + context.symbol) : (context.symbol + "/*")) + " #" + fromBlock + "-" + toBlock + " [" + (toBlock - fromBlock) + "] newPools: " + newPools);
                 fromBlock = toBlock;
               } catch (e) {
                 console.log(e);
@@ -1480,7 +1478,7 @@
             });
           },
           async syncUniswapV2Trades(context) {
-            console.log("syncUniswapV2Trades: " + context.address + " " + context.symbol);
+            // console.log("syncUniswapV2Trades: " + context.address + " " + context.symbol);
             this.sync.completed = 0;
             this.sync.total = null;
             this.sync.section = context.symbol + " UniswapV2Trades";
@@ -1546,7 +1544,7 @@
                     count++;
                   }
                   this.sync.completed = count;
-                  console.log(moment().format("HH:mm:ss") + " from: " + fromBlock + ", to: " + toBlock + ", range: " + (toBlock - fromBlock) + ", batchSize: " + batchSize + ", newTrades: " + newTrades);
+                  console.log(moment().format("HH:mm:ss") + " syncUniswapV2Trades #" + fromBlock + "-" + toBlock + " [" + (toBlock - fromBlock) + "/" + batchSize + "] newTrades: " + newTrades);
                   fromBlock = toBlock;
                 } catch (e) {
                   console.log(e);
@@ -1563,7 +1561,7 @@
             }
           },
           async syncUniswapV3Trades(context) {
-            console.log("syncUniswapV3Trades: " + context.address + " " + context.symbol);
+            // console.log("syncUniswapV3Trades: " + context.address + " " + context.symbol);
             this.sync.completed = 0;
             this.sync.total = null;
             this.sync.section = context.symbol + " UniswapV3Trades";
@@ -1631,7 +1629,7 @@
                     count++;
                   }
                   this.sync.completed = count;
-                  console.log(moment().format("HH:mm:ss") + " from: " + fromBlock + ", to: " + toBlock + ", range: " + (toBlock - fromBlock) + ", batchSize: " + batchSize + ", newTrades: " + newTrades);
+                  console.log(moment().format("HH:mm:ss") + " syncUniswapV3Trades #" + fromBlock + "-" + toBlock + " [" + (toBlock - fromBlock) + "/" + batchSize + "] newTrades: " + newTrades);
                   fromBlock = toBlock;
                 } catch (e) {
                   console.log(e);
