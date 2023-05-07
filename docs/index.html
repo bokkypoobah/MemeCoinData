@@ -1626,54 +1626,82 @@
             for (const [coinAddress, coinInfo] of Object.entries(this.settings.coins)) {
               if (coinInfo.include) {
                 console.log("loadCurrentData: " + coinAddress + " " + coinInfo.symbol + " " + coinInfo.name);
-                const transfersDataObject = await db.cache.where("objectName").equals(coinAddress + "_transfers").toArray();
-                if (transfersDataObject.length == 1) {
-                  for (const [blockNumber, txIndexes] of Object.entries(transfersDataObject[0].object)) {
-                    if (!(blockNumber in transfers)) {
-                      transfers[blockNumber] = {};
-                    }
-                    for (const [txIndex, txHashes] of Object.entries(txIndexes)) {
-                      if (!(txIndex in transfers[blockNumber])) {
-                        transfers[blockNumber][txIndex] = {};
-                      }
-                      for (const [txHash, logIndexes] of Object.entries(txHashes)) {
-                        if (!(txHash in transfers[blockNumber][txIndex])) {
-                          transfers[blockNumber][txIndex][txHash] = {};
-                        }
-                        for (const [logIndex, txData] of Object.entries(logIndexes)) {
-                          // console.log(txHash + " => " + JSON.stringify({ address: coinAddress, ...txData }));
-                          if (!(logIndex in transfers[blockNumber][txIndex][txHash])) {
-                            transfers[blockNumber][txIndex][txHash][logIndex] = { address: coinAddress, ...txData };
-                            count++;
-                          }
-                        }
-                      }
-                    }
-                  }
-                }
+
+                // TODO
+                // const transfersDataObject = await db.cache.where("objectName").equals(coinAddress + "_transfers").toArray();
+                // if (transfersDataObject.length == 1) {
+                //   for (const [blockNumber, txIndexes] of Object.entries(transfersDataObject[0].object)) {
+                //     if (!(blockNumber in transfers)) {
+                //       transfers[blockNumber] = {};
+                //     }
+                //     for (const [txIndex, txHashes] of Object.entries(txIndexes)) {
+                //       if (!(txIndex in transfers[blockNumber])) {
+                //         transfers[blockNumber][txIndex] = {};
+                //       }
+                //       for (const [txHash, logIndexes] of Object.entries(txHashes)) {
+                //         if (!(txHash in transfers[blockNumber][txIndex])) {
+                //           transfers[blockNumber][txIndex][txHash] = {};
+                //         }
+                //         for (const [logIndex, txData] of Object.entries(logIndexes)) {
+                //           // console.log(txHash + " => " + JSON.stringify({ address: coinAddress, ...txData }));
+                //           if (!(logIndex in transfers[blockNumber][txIndex][txHash])) {
+                //             transfers[blockNumber][txIndex][txHash][logIndex] = { address: coinAddress, ...txData };
+                //             count++;
+                //           }
+                //         }
+                //       }
+                //     }
+                //   }
+                // }
+
+                // TODO
                 const uniswapV2PoolsDataObject = await db.cache.where("objectName").equals(coinAddress + "_uniswapv2pools").toArray();
                 if (uniswapV2PoolsDataObject.length == 1) {
                   for (const [blockNumber, poolsData] of Object.entries(uniswapV2PoolsDataObject[0].object)) {
                     for (const [poolAddress, poolData] of Object.entries(poolsData)) {
                       const tradesDataObject = await db.cache.where("objectName").equals(poolAddress + '_uniswapv2trades').toArray();
-                      const trades = tradesDataObject.length == 1 ? tradesDataObject[0].object : {};
+                      const tradesData = tradesDataObject.length == 1 ? tradesDataObject[0].object : {};
                       pools[poolAddress] = {
                         token0: poolData.token0,
                         token1: poolData.token1,
                         transactionHash: poolData.transactionHash,
                         blockNumber,
                         type: "UniswapV2Pool",
-                        trades,
+                        // tradesData,
                       };
+                      for (const [blockNumber, txIndexes] of Object.entries(tradesDataObject[0].object)) {
+                        for (const [txIndex, txHashes] of Object.entries(txIndexes)) {
+                          for (const [txHash, logIndexes] of Object.entries(txHashes)) {
+                            // if (txHash == "0x055cde7dfb6866abf5e6986dcce438061b945a17d72ad61a2ffeb3f6029765c5") {
+                              // console.log("v2: " + JSON.stringify(txHash));
+                              const logs = {};
+                              for (const [logIndex, txData] of Object.entries(logIndexes)) {
+                                // console.log(poolAddress.substring(0, 12) + " " + blockNumber + "/" + txIndex + "/" + txHash + "/" + logIndex + " => " + JSON.stringify(txData));
+                                logs[logIndex] = {
+                                  poolAddress,
+                                  ...txData,
+                                };
+                              }
+                              trades[txHash] = {
+                                blockNumber,
+                                txIndex,
+                                logs,
+                              };
+                            }
+                          // }
+                        }
+                      }
                     }
                   }
                 }
+                // console.log("trades after v2: " + JSON.stringify(trades, null, 2));
+
                 const uniswapV3PoolsDataObject = await db.cache.where("objectName").equals(coinAddress + "_uniswapv3pools").toArray();
                 if (uniswapV3PoolsDataObject.length == 1) {
                   for (const [blockNumber, poolsData] of Object.entries(uniswapV3PoolsDataObject[0].object)) {
                     for (const [poolAddress, poolData] of Object.entries(poolsData)) {
                       const tradesDataObject = await db.cache.where("objectName").equals(poolAddress + '_uniswapv3trades').toArray();
-                      const trades = tradesDataObject.length == 1 ? tradesDataObject[0].object : {};
+                      const tradesData = tradesDataObject.length == 1 ? tradesDataObject[0].object : {};
                       pools[poolAddress] = {
                         token0: poolData.token0,
                         token1: poolData.token1,
@@ -1682,8 +1710,65 @@
                         transactionHash: poolData.transactionHash,
                         blockNumber,
                         type: "UniswapV3Pool",
-                        trades,
+                        // tradesData,
                       };
+                      for (const [blockNumber, txIndexes] of Object.entries(tradesDataObject[0].object)) {
+                        for (const [txIndex, txHashes] of Object.entries(txIndexes)) {
+                          for (const [txHash, logIndexes] of Object.entries(txHashes)) {
+                            // if (txHash == "0x055cde7dfb6866abf5e6986dcce438061b945a17d72ad61a2ffeb3f6029765c5") {
+                              // console.log("v3: " + JSON.stringify(txHash));
+                              const logs = {};
+                              for (const [logIndex, txData] of Object.entries(logIndexes)) {
+                                // console.log(poolAddress.substring(0, 12) + " " + blockNumber + "/" + txIndex + "/" + txHash + "/" + logIndex + " => " + JSON.stringify(txData));
+                                logs[logIndex] = {
+                                  poolAddress,
+                                  ...txData,
+                                };
+                              }
+                              if (trades[txHash]) {
+                                // console.log("v3 - v2 trade found");
+                                trades[txHash].logs = { ...trades[txHash].logs, ...logs };
+                              } else {
+                                // console.log("v3 - v2 trade not found");
+                                trades[txHash] = {
+                                  blockNumber,
+                                  txIndex,
+                                  logs,
+                                };
+                              }
+                            // }
+
+                            // for (const [logIndex, txData] of Object.entries(logIndexes)) {
+                            //   // console.log(poolAddress.substring(0, 12) + " " + blockNumber + "/" + txIndex + "/" + txHash + "/" + logIndex + " => " + JSON.stringify(txData));
+                            // }
+                            // const logIndexes = trades[txHash] && trades[txHash].logIndexes || {};
+                            // console.log("logIndexes: " + JSON.stringify(logIndexes));
+
+
+
+                            if (false) {
+                              let newLogIndexes = {};
+                              if (trades[txHash]) {
+                                for (const [logIndex, txData] of Object.entries(trades[txHash].logIndexes)) {
+                              //     // console.log("UniswapV2: " + logIndex + " " + JSON.stringify(txData));
+                                  newLogIndexes[logIndex] = { poolAddress, txData };
+                                }
+                              } else {
+                                trades[txHash] = {
+                                  // poolAddress,
+                                  blockNumber,
+                                  txIndex,
+                                  logIndexes,
+                                };
+                              }
+                              for (const [logIndex, txData] of Object.entries(logIndexes)) {
+                              //   // console.log("UniswapV3: " + logIndex + " " + JSON.stringify(txData));
+                                newLogIndexes[logIndex] = { poolAddress, txData };
+                              }
+                            }
+                          }
+                        }
+                      }
                     }
                   }
                 }
@@ -1693,7 +1778,7 @@
             // console.log("Loaded " + count + " events");
             // console.log("Loaded " + Object.keys(pools).length + " Uniswap V2 & V3 pools");
             // console.log(JSON.stringify(pools, null, 2));
-            console.log("loadCurrentData - trades: " + JSON.stringify(trades));
+            console.log("loadCurrentData - trades['0x055cde7dfb6866abf5e6986dcce438061b945a17d72ad61a2ffeb3f6029765c5']: " + JSON.stringify(trades["0x055cde7dfb6866abf5e6986dcce438061b945a17d72ad61a2ffeb3f6029765c5"], null, 2));
             this.trades = trades;
             this.transfers = transfers;
             this.pools = pools;
