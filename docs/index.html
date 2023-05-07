@@ -858,6 +858,7 @@
                 blockNumber: txInfo.blockNumber,
                 timestamp,
                 txIndex: txInfo.txIndex,
+                coin: txInfo.token,
               });
             }
             console.log("results[0]: " + JSON.stringify(results && results[0] || {}));
@@ -1643,10 +1644,10 @@
                     for (const [txIndex, txHashes] of Object.entries(txIndexes)) {
                       for (const [txHash, logIndexes] of Object.entries(txHashes)) {
                         if (!trades[txHash]) {
-                          trades[txHash] = { blockNumber, txIndex, logs: {} };
+                          trades[txHash] = { blockNumber, txIndex, token: coinAddress, logs: {} };
                         }
                         for (const [logIndex, txData] of Object.entries(logIndexes)) {
-                          trades[txHash].logs[logIndex] = { type: 'tx', token: coinAddress, ...txData };
+                          trades[txHash].logs[logIndex] = { type: 'tx', ...txData };
                         }
                       }
                     }
@@ -1670,7 +1671,7 @@
                         for (const [txIndex, txHashes] of Object.entries(txIndexes)) {
                           for (const [txHash, logIndexes] of Object.entries(txHashes)) {
                             if (!trades[txHash]) {
-                              trades[txHash] = { blockNumber, txIndex, logs: {} };
+                              trades[txHash] = { blockNumber, txIndex, token: coinAddress, logs: {} };
                             }
                             for (const [logIndex, txData] of Object.entries(logIndexes)) {
                               trades[txHash].logs[logIndex] = { type: 'us2', poolAddress, ...txData };
@@ -1701,7 +1702,7 @@
                         for (const [txIndex, txHashes] of Object.entries(txIndexes)) {
                           for (const [txHash, logIndexes] of Object.entries(txHashes)) {
                             if (!trades[txHash]) {
-                              trades[txHash] = { blockNumber, txIndex, logs: {} };
+                              trades[txHash] = { blockNumber, txIndex, token: coinAddress, logs: {} };
                             }
                             for (const [logIndex, txData] of Object.entries(logIndexes)) {
                               trades[txHash].logs[logIndex] = { type: 'us3', poolAddress, ...txData };
