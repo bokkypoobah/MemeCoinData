@@ -1180,11 +1180,13 @@
             db.version(this.db.version).stores(this.db.schemaDefinition);
             for (const [address, coinInfo] of Object.entries(this.settings.coins)) {
               if (coinInfo.sync && !this.sync.halt) {
-                await this.syncCoinTransfers({ provider, confirmedBlockNumber, db, address, symbol: coinInfo.symbol });
-                await this.syncUniswapV2Pools({ provider, confirmedBlockNumber, db, address, symbol: coinInfo.symbol });
-                await this.syncUniswapV3Pools({ provider, confirmedBlockNumber, db, address, symbol: coinInfo.symbol });
-                await this.syncUniswapV2Trades({ provider, confirmedBlockNumber, db, address, symbol: coinInfo.symbol });
-                await this.syncUniswapV3Trades({ provider, confirmedBlockNumber, db, address, symbol: coinInfo.symbol });
+                const context = { provider, confirmedBlockNumber, db, address, symbol: coinInfo.symbol };
+                await this.syncCoinTransfers(context);
+                await this.syncUniswapV2Pools(context);
+                await this.syncUniswapV3Pools(context);
+                await this.syncUniswapV2Trades(context);
+                await this.syncUniswapV3Trades(context);
+                // await this.syncUniswapAltTokenTransfers(context);
               }
             }
             this.sync.section = null;
@@ -1644,6 +1646,90 @@
                 console.log("error: " + error);
               });
             }
+          },
+          async syncUniswapAltTokenTransfers(context) {
+            // console.log("syncCoinTransfers: " + context.address + " " + context.symbol);
+            this.sync.completed = 0;
+            this.sync.total = null;
+            this.sync.section = context.symbol + ' Txs';
+            const dataObject = await context.db.cache.where("objectName").equals(context.address + "_transfers").toArray();
+            const transfers = dataObject.length == 1 ? dataObject[0].object : {};
+            const blockNumbers = Object.keys(transfers).sort((a, b) => { return b - a });
+            const startBlock = blockNumbers.length > 0 ? parseInt(blockNumbers[0]) + 1: 0;
+            let batchSize = 100000000;
+            const BATCHREDUCTIONFACTOR = 0.50;
+            let done = false;
+            let fromBlock = startBlock;
+            let count = 0;
+            let newTransfers = 0;
+            const newBlocks = {};
+            const newAccounts = {};
+            do {
+              if (batchSize > 1000 && parseInt(fromBlock) + batchSize > context.confirmedBlockNumber) {
+                batchSize = parseInt((context.confirmedBlockNumber - fromBlock) * 0.75);
+              }
+              batchSize = (batchSize > 10) ? batchSize: 10; // avoid divide by 0
+              let toBlock = (parseInt(fromBlock) + batchSize < context.confirmedBlockNumber) ? (parseInt(fromBlock) + batchSize) : context.confirmedBlockNumber;
+              const transferTopics = [ '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef', null, null ];
+              try {
+                const logs = await context.provider.getLogs({ address: context.address, fromBlock, toBlock, topics: transferTopics });
+                for (const event of logs) {
+                  if (!event.removed) {
+                    let from, to, tokens;
+                    if (event.topics.length == 4) {
+                      from = ethers.utils.getAddress('0x' + event.topics[1].substring(26));
+                      to = ethers.utils.getAddress('0x' + event.topics[2].substring(26));
+                      tokens = ethers.BigNumber.from(event.topics[3]).toString();
+                    } else if (event.topics.length == 3) {
+                      from = ethers.utils.getAddress('0x' + event.topics[1].substring(26));
+                      to = ethers.utils.getAddress('0x' + event.topics[2].substring(26));
+                      tokens = ethers.BigNumber.from(event.data).toString();
+                    } else if (event.topics.length == 1) {
+                      from = ethers.utils.getAddress('0x' + event.data.substring(26, 66));
+                      to = ethers.utils.getAddress('0x' + event.data.substring(90, 130));
+                      tokens = ethers.BigNumber.from('0x' + event.data.substring(130, 193)).toString();
+                    }
+                    if (!(event.blockNumber in this.blockTimestamps) && !(event.blockNumber in newBlocks)) {
+                      newBlocks[event.blockNumber] = null;
+                    }
+                    if (!(from in this.ensMap) && !(from in newAccounts)) {
+                      newAccounts[from] = null;
+                    }
+                    if (!(to in this.ensMap) && !(to in newAccounts)) {
+                      newAccounts[to] = null;
+                    }
+                    if (!(event.blockNumber in transfers)) {
+                      transfers[event.blockNumber] = {};
+                    }
+                    if (!(event.transactionIndex in transfers[event.blockNumber])) {
+                      transfers[event.blockNumber][event.transactionIndex] = {};
+                    }
+                    if (!(event.transactionHash in transfers[event.blockNumber][event.transactionIndex])) {
+                      transfers[event.blockNumber][event.transactionIndex][event.transactionHash] = {};
+                    }
+                    if (!(event.logIndex in transfers[event.blockNumber][event.transactionIndex][event.transactionHash])) {
+                      transfers[event.blockNumber][event.transactionIndex][event.transactionHash][event.logIndex] = { from, to, tokens };
+                      newTransfers++;
+                    }
+                  }
+                  count++;
+                }
+                this.sync.completed = count;
+                console.log(moment().format("HH:mm:ss") + " syncCoinTransfers " + context.address.substring(0, 10) + " " + context.symbol + " #" + fromBlock + "-" + toBlock + " [" + (toBlock - fromBlock) + "/" + batchSize + "] newTransfers: " + newTransfers);
+                fromBlock = toBlock;
+              } catch (e) {
+                console.log(e);
+                batchSize = parseInt(batchSize * BATCHREDUCTIONFACTOR);
+              }
+              done = fromBlock >= context.confirmedBlockNumber;
+            } while (!done && !this.sync.halt);
+            newAccounts[this.coinbase] = null;
+            await this.syncENSNames(context, Object.keys(newAccounts));
+            await this.syncBlockTimestamps(context, Object.keys(newBlocks));
+            await context.db.cache.put({ objectName: context.address + "_transfers", object: transfers }).then (function() {
+            }).catch(function(error) {
+              console.log("error: " + error);
+            });
           },
           async loadCurrentData() {
             const db = new Dexie(this.db.name);
