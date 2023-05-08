@@ -652,12 +652,12 @@
             { key: 'number', label: '#', sortable: false, thStyle: 'width: 5%;', tdClass: 'text-truncate' },
             // { key: 'blockNumber', label: 'Block Number', sortable: false, thStyle: 'width: 15%;', tdClass: 'text-truncate' },
             { key: 'timestamp', label: 'When', sortable: false, thStyle: 'width: 15%;', tdClass: 'text-truncate' },
-            { key: 'info', label: 'Info', sortable: false, thStyle: 'width: 30%;', tdClass: 'text-truncate' },
+            { key: 'info', label: 'Info', sortable: false, thStyle: 'width: 25%;', tdClass: 'text-truncate' },
             // { key: 'coin', label: 'Coin', sortable: false, thStyle: 'width: 20%;', tdClass: 'text-truncate' },
             { key: 'from', label: 'From', sortable: false, thStyle: 'width: 15%;', tdClass: 'text-truncate' },
             { key: 'to', label: 'To', sortable: false, thStyle: 'width: 15%;', tdClass: 'text-truncate' },
-            { key: 'token', label: 'Token', sortable: false, thStyle: 'width: 10%;', tdClass: 'text-truncate' },
-            { key: 'tokens', label: 'Tokens', sortable: false, thStyle: 'width: 10%;', tdClass: 'text-truncate' },
+            { key: 'token', label: 'Token', sortable: false, thStyle: 'width: 5%;', tdClass: 'text-truncate' },
+            { key: 'tokens', label: 'Tokens', sortable: false, thStyle: 'width: 20%;', thClass: 'text-right', tdClass: 'text-right' },
           ],
           tokensFields: [
             { key: 'number', label: '#', sortable: false, thStyle: 'width: 5%;', tdClass: 'text-truncate' },
@@ -688,7 +688,7 @@
             // { key: 'include', label: 'Include', sortable: true, thStyle: 'width: 10%;', tdClass: 'text-truncate' },
           ],
           db: {
-            name: "memecoindata089b",
+            name: "memecoindata089c",
             version: 1,
             schemaDefinition: {
               cache: '&objectName',
@@ -1628,7 +1628,8 @@
               }
             }
             // Swap (index_topic_1 address sender, uint256 amount0In, uint256 amount1In, uint256 amount0Out, uint256 amount1Out, index_topic_2 address to)
-            const topics = [ '0xd78ad95fa46c994b6551d0da85fc275fe613ce37657fb8d5e3d130840159d822', null, null ];
+            // const topics = [ '0xd78ad95fa46c994b6551d0da85fc275fe613ce37657fb8d5e3d130840159d822', null, null ];
+            const topics = [ null, null, null ];
             const newBlocks = {};
             for (const [poolAddress, poolInfo] of Object.entries(pools)) {
               const tradesDataObject = await context.db.cache.where("objectName").equals(poolAddress + '_uniswapv2trades').toArray();
@@ -1647,34 +1648,59 @@
                 }
                 batchSize = (batchSize > 10) ? batchSize: 10; // avoid divide by 0
                 let toBlock = (parseInt(fromBlock) + batchSize < context.confirmedBlockNumber) ? (parseInt(fromBlock) + batchSize) : context.confirmedBlockNumber;
-                // console.log(moment().format("HH:mm:ss") + " syncUniswapV2Trades #" + fromBlock + "-" + toBlock + " [" + (toBlock - fromBlock) + "/" + batchSize + "]");
                 try {
                   const logs = await context.provider.getLogs({ address: poolAddress, fromBlock, toBlock, topics });
                   for (const event of logs) {
                     if (!event.removed) {
                       const log = interface.parseLog(event);
-                      // Swap (index_topic_1 address sender, uint256 amount0In, uint256 amount1In, uint256 amount0Out, uint256 amount1Out, index_topic_2 address to)
-                      const [sender, amount0In, amount1In, amount0Out, amount1Out, recipient] = log.args;
-                      if (!(event.blockNumber in this.blockTimestamps) && !(event.blockNumber in newBlocks)) {
-                        newBlocks[event.blockNumber] = null;
-                      }
-                      if (!(event.blockNumber in trades)) {
-                        trades[event.blockNumber] = {};
-                      }
-                      if (!(event.transactionIndex in trades[event.blockNumber])) {
-                        trades[event.blockNumber][event.transactionIndex] = {};
-                      }
-                      if (!(event.transactionHash in trades[event.blockNumber][event.transactionIndex])) {
-                        trades[event.blockNumber][event.transactionIndex][event.transactionHash] = {};
-                      }
-                      if (!(event.logIndex in trades[event.blockNumber][event.transactionIndex][event.transactionHash])) {
-                        newTrades++;
-                        trades[event.blockNumber][event.transactionIndex][event.transactionHash][event.logIndex] = {
+                      let record = null;
+                      if (log.name == "Swap") {
+                        // event Swap(address indexed sender, uint amount0In, uint amount1In, uint amount0Out, uint amount1Out, address indexed to);
+                        const [sender, amount0In, amount1In, amount0Out, amount1Out, recipient] = log.args;
+                        record = {
+                          type: "Swap",
                           sender,
                           recipient,
                           amount0: amount0In.gt(0) ? amount0In.toString() : "-" + amount0Out.toString(),
                           amount1: amount1In.gt(0) ? amount1In.toString() : "-" + amount1Out.toString(),
                         };
+                      } else if (log.name == "Mint") {
+                        // event Mint(address indexed sender, uint amount0, uint amount1);
+                        const [sender, amount0, amount1] = log.args;
+                        record = {
+                          type: "Mint",
+                          sender,
+                          amount0: amount0.toString(),
+                          amount1: amount1.toString(),
+                        };
+                      } else if (log.name == "Burn") {
+                        // event Burn(address indexed sender, uint amount0, uint amount1, address indexed to);
+                        const [sender, amount0, amount1, to] = log.args;
+                        record = {
+                          type: "Burn",
+                          sender,
+                          amount0: amount0.toString(),
+                          amount1: amount1.toString(),
+                          to,
+                        };
+                      }
+                      if (record) {
+                        if (!(event.blockNumber in this.blockTimestamps) && !(event.blockNumber in newBlocks)) {
+                          newBlocks[event.blockNumber] = null;
+                        }
+                        if (!(event.blockNumber in trades)) {
+                          trades[event.blockNumber] = {};
+                        }
+                        if (!(event.transactionIndex in trades[event.blockNumber])) {
+                          trades[event.blockNumber][event.transactionIndex] = {};
+                        }
+                        if (!(event.transactionHash in trades[event.blockNumber][event.transactionIndex])) {
+                          trades[event.blockNumber][event.transactionIndex][event.transactionHash] = {};
+                        }
+                        if (!(event.logIndex in trades[event.blockNumber][event.transactionIndex][event.transactionHash])) {
+                          newTrades++;
+                          trades[event.blockNumber][event.transactionIndex][event.transactionHash][event.logIndex] = record;
+                        }
                       }
                     }
                     count++;
@@ -1710,7 +1736,8 @@
               }
             }
             // Swap (index_topic_1 address sender, index_topic_2 address recipient, int256 amount0, int256 amount1, uint160 sqrtPriceX96, uint128 liquidity, int24 tick)
-            const topics = [ '0xc42079f94a6350d7e6235f29174924f928cc2ac818eb64fed8004e115fbcca67', null, null ];
+            // const topics = [ '0xc42079f94a6350d7e6235f29174924f928cc2ac818eb64fed8004e115fbcca67', null, null ];
+            const topics = [ null, null, null ];
             const newBlocks = {};
             for (const [poolAddress, poolInfo] of Object.entries(pools)) {
               const tradesDataObject = await context.db.cache.where("objectName").equals(poolAddress + '_uniswapv3trades').toArray();
@@ -1734,30 +1761,75 @@
                   for (const event of logs) {
                     if (!event.removed) {
                       const log = interface.parseLog(event);
-                      const [sender, recipient, amount0, amount1, sqrtPriceX96, liquidity, tick] = log.args;
-                      if (!(event.blockNumber in this.blockTimestamps) && !(event.blockNumber in newBlocks)) {
-                        newBlocks[event.blockNumber] = null;
-                      }
-                      if (!(event.blockNumber in trades)) {
-                        trades[event.blockNumber] = {};
-                      }
-                      if (!(event.transactionIndex in trades[event.blockNumber])) {
-                        trades[event.blockNumber][event.transactionIndex] = {};
-                      }
-                      if (!(event.transactionHash in trades[event.blockNumber][event.transactionIndex])) {
-                        trades[event.blockNumber][event.transactionIndex][event.transactionHash] = {};
-                      }
-                      if (!(event.logIndex in trades[event.blockNumber][event.transactionIndex][event.transactionHash])) {
-                        newTrades++;
-                        trades[event.blockNumber][event.transactionIndex][event.transactionHash][event.logIndex] = {
+                      let record = null;
+                      if (log.name == "Swap") {
+                        const [sender, recipient, amount0, amount1, sqrtPriceX96, liquidity, tick] = log.args;
+                        record = {
+                          type: "Swap",
                           sender,
                           recipient,
                           amount0: amount0.toString(),
                           amount1: amount1.toString(),
-                          // sqrtPriceX96: sqrtPriceX96.toString(),
-                          // liquidity: liquidity.toString(),
-                          // tick: tick.toString(),
+                          sqrtPriceX96: sqrtPriceX96.toString(),
+                          liquidity: liquidity.toString(),
+                          tick: tick.toString(),
                         };
+
+                      } else if (log.name == "Mint") {
+                        // event Mint(address sender, address indexed owner, int24 indexed tickLower, int24 indexed tickUpper, uint128 amount, uint256 amount0, uint256 amount1);
+                        const [sender, owner, tickLower, tickUpper, amount, amount0, amount1] = log.args;
+                        record = {
+                          type: "Mint",
+                          sender,
+                          owner,
+                          tickLower: tickLower.toString(),
+                          tickUpper: tickUpper.toString(),
+                          amount: amount.toString(),
+                          amount0: amount0.toString(),
+                          amount1: amount1.toString(),
+                        };
+                      } else if (log.name == "Collect") {
+                        // event Collect(address indexed owner, address recipient, int24 indexed tickLower, int24 indexed tickUpper, uint128 amount0, uint128 amount1);
+                        const [owner, recipient, tickLower, tickUpper, amount0, amount1] = log.args;
+                        record = {
+                          type: "Collect",
+                          owner,
+                          recipient,
+                          tickLower: tickLower.toString(),
+                          tickUpper: tickUpper.toString(),
+                          amount0: amount0.toString(),
+                          amount1: amount1.toString(),
+                        };
+                      } else if (log.name == "Burn") {
+                        // event Burn(address indexed owner, int24 indexed tickLower, int24 indexed tickUpper, uint128 amount, uint256 amount0, uint256 amount1);
+                        const [owner, tickLower, tickUpper, amount, amount0, amount1] = log.args;
+                        record = {
+                          type: "Burn",
+                          owner,
+                          tickLower: tickLower.toString(),
+                          tickUpper: tickUpper.toString(),
+                          amount: amount.toString(),
+                          amount0: amount0.toString(),
+                          amount1: amount1.toString(),
+                        };
+                      }
+                      if (record) {
+                        if (!(event.blockNumber in this.blockTimestamps) && !(event.blockNumber in newBlocks)) {
+                          newBlocks[event.blockNumber] = null;
+                        }
+                        if (!(event.blockNumber in trades)) {
+                          trades[event.blockNumber] = {};
+                        }
+                        if (!(event.transactionIndex in trades[event.blockNumber])) {
+                          trades[event.blockNumber][event.transactionIndex] = {};
+                        }
+                        if (!(event.transactionHash in trades[event.blockNumber][event.transactionIndex])) {
+                          trades[event.blockNumber][event.transactionIndex][event.transactionHash] = {};
+                        }
+                        if (!(event.logIndex in trades[event.blockNumber][event.transactionIndex][event.transactionHash])) {
+                          newTrades++;
+                          trades[event.blockNumber][event.transactionIndex][event.transactionHash][event.logIndex] = record;
+                        }
                       }
                     }
                     count++;
