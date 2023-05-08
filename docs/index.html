@@ -1759,7 +1759,7 @@
                           trades[txHash] = { blockNumber, txIndex, token: coinAddress, logs: {} };
                         }
                         for (const [logIndex, txData] of Object.entries(logIndexes)) {
-                          trades[txHash].logs[logIndex] = { type: 'tx', ...txData };
+                          trades[txHash].logs[logIndex] = { token: coinAddress, ...txData };
                         }
                       }
                     }
@@ -1768,14 +1768,16 @@
 
                 const uniswapV2PoolsDataObject = await db.cache.where("objectName").equals(coinAddress + "_uniswapv2pools").toArray();
                 if (uniswapV2PoolsDataObject.length == 1) {
-                  for (const [blockNumber, poolsData] of Object.entries(uniswapV2PoolsDataObject[0].object)) {
-                    for (const [poolAddress, poolData] of Object.entries(poolsData)) {
+                  for (const [blockNumber, poolsInfo] of Object.entries(uniswapV2PoolsDataObject[0].object)) {
+                    for (const [poolAddress, poolInfo] of Object.entries(poolsInfo)) {
+                      const altToken = poolInfo.token0.address == coinAddress ? poolInfo.token1 : poolInfo.token0;
+                      console.log("UniswapV2Pool " + poolAddress + " " + coinInfo.symbol + "<->" + altToken.symbol + " " + JSON.stringify(poolInfo, null, 2));
                       const tradesDataObject = await db.cache.where("objectName").equals(poolAddress + '_uniswapv2trades').toArray();
                       const tradesData = tradesDataObject.length == 1 ? tradesDataObject[0].object : {};
                       pools[poolAddress] = {
-                        token0: poolData.token0,
-                        token1: poolData.token1,
-                        transactionHash: poolData.transactionHash,
+                        token0: poolInfo.token0,
+                        token1: poolInfo.token1,
+                        transactionHash: poolInfo.transactionHash,
                         blockNumber,
                         type: "UniswapV2Pool"
                       };
@@ -1783,10 +1785,25 @@
                         for (const [txIndex, txHashes] of Object.entries(txIndexes)) {
                           for (const [txHash, logIndexes] of Object.entries(txHashes)) {
                             if (!trades[txHash]) {
-                              trades[txHash] = { blockNumber, txIndex, token: coinAddress, logs: {} };
+                              trades[txHash] = { blockNumber, txIndex, logs: {} };
                             }
                             for (const [logIndex, txData] of Object.entries(logIndexes)) {
-                              trades[txHash].logs[logIndex] = { type: 'us2', poolAddress, ...txData };
+                              trades[txHash].logs[logIndex] = { ...txData };
+                            }
+                          }
+                        }
+                      }
+                      const altTradesDataObject = await db.cache.where("objectName").equals(poolAddress + "_" + altToken.address + "_transfers").toArray();
+                      const altTradesData = altTradesDataObject.length == 1 ? altTradesDataObject[0].object : {};
+                      console.log("altTradesData: " + JSON.stringify(altTradesData, null, 2));
+                      for (const [blockNumber, txIndexes] of Object.entries(altTradesData)) {
+                        for (const [txIndex, txHashes] of Object.entries(txIndexes)) {
+                          for (const [txHash, logIndexes] of Object.entries(txHashes)) {
+                            if (!trades[txHash]) {
+                              trades[txHash] = { blockNumber, txIndex, logs: {} };
+                            }
+                            for (const [logIndex, txData] of Object.entries(logIndexes)) {
+                              trades[txHash].logs[logIndex] = { token: altToken.address, ...txData };
                             }
                           }
                         }
@@ -1797,16 +1814,18 @@
 
                 const uniswapV3PoolsDataObject = await db.cache.where("objectName").equals(coinAddress + "_uniswapv3pools").toArray();
                 if (uniswapV3PoolsDataObject.length == 1) {
-                  for (const [blockNumber, poolsData] of Object.entries(uniswapV3PoolsDataObject[0].object)) {
-                    for (const [poolAddress, poolData] of Object.entries(poolsData)) {
+                  for (const [blockNumber, poolsInfo] of Object.entries(uniswapV3PoolsDataObject[0].object)) {
+                    for (const [poolAddress, poolInfo] of Object.entries(poolsInfo)) {
+                      const altToken = poolInfo.token0.address == coinAddress ? poolInfo.token1 : poolInfo.token0;
+                      console.log("UniswapV3Pool " + poolAddress + " " + coinInfo.symbol + "<->" + altToken.symbol + " " + JSON.stringify(poolInfo, null, 2));
                       const tradesDataObject = await db.cache.where("objectName").equals(poolAddress + '_uniswapv3trades').toArray();
                       const tradesData = tradesDataObject.length == 1 ? tradesDataObject[0].object : {};
                       pools[poolAddress] = {
-                        token0: poolData.token0,
-                        token1: poolData.token1,
-                        fee: poolData.fee,
-                        tickSpacing: poolData.tickSpacing,
-                        transactionHash: poolData.transactionHash,
+                        token0: poolInfo.token0,
+                        token1: poolInfo.token1,
+                        fee: poolInfo.fee,
+                        tickSpacing: poolInfo.tickSpacing,
+                        transactionHash: poolInfo.transactionHash,
                         blockNumber,
                         type: "UniswapV3Pool",
                       };
@@ -1814,10 +1833,25 @@
                         for (const [txIndex, txHashes] of Object.entries(txIndexes)) {
                           for (const [txHash, logIndexes] of Object.entries(txHashes)) {
                             if (!trades[txHash]) {
-                              trades[txHash] = { blockNumber, txIndex, token: coinAddress, logs: {} };
+                              trades[txHash] = { blockNumber, txIndex, logs: {} };
                             }
                             for (const [logIndex, txData] of Object.entries(logIndexes)) {
-                              trades[txHash].logs[logIndex] = { type: 'us3', poolAddress, ...txData };
+                              trades[txHash].logs[logIndex] = { ...txData };
+                            }
+                          }
+                        }
+                      }
+                      const altTradesDataObject = await db.cache.where("objectName").equals(poolAddress + "_" + altToken.address + "_transfers").toArray();
+                      const altTradesData = altTradesDataObject.length == 1 ? altTradesDataObject[0].object : {};
+                      console.log("altTradesData: " + JSON.stringify(altTradesData, null, 2));
+                      for (const [blockNumber, txIndexes] of Object.entries(altTradesData)) {
+                        for (const [txIndex, txHashes] of Object.entries(txIndexes)) {
+                          for (const [txHash, logIndexes] of Object.entries(txHashes)) {
+                            if (!trades[txHash]) {
+                              trades[txHash] = { blockNumber, txIndex, logs: {} };
+                            }
+                            for (const [logIndex, txData] of Object.entries(logIndexes)) {
+                              trades[txHash].logs[logIndex] = { token: altToken.address, ...txData };
                             }
                           }
                         }
