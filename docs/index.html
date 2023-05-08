@@ -950,7 +950,6 @@
                 }
               } else if (logList.length == 2 && txLogs.length == 1 && altTxLogs.length == 1) {
                 const pool = this.pools[txLogs[0].to] || null;
-                console.log("pool: " + JSON.stringify(pool, null, 2));
                 if (pool) {
                   info = {
                     type: "addLiquidity",
@@ -969,7 +968,7 @@
                   // TODO
                 }
               } else if (logList.length == 3 && txLogs.length == 1 && altTxLogs.length == 1) {
-                const uLogs = u2Logs.length == 1 ? u2Logs : u2Logs;
+                const uLogs = u2Logs.length == 1 ? u2Logs : u3Logs;
                 const pool = this.pools[uLogs[0].poolAddress] || null;
                 const token0 = {
                   token: pool.token0.symbol,
@@ -2012,7 +2011,7 @@
             // console.log("Loaded " + Object.keys(pools).length + " Uniswap V2 & V3 pools");
             // console.log("loadCurrentData - pools: " + JSON.stringify(pools, null, 2));
             // console.log("loadCurrentData - trades['0x055cde7dfb6866abf5e6986dcce438061b945a17d72ad61a2ffeb3f6029765c5']: " + JSON.stringify(trades["0x055cde7dfb6866abf5e6986dcce438061b945a17d72ad61a2ffeb3f6029765c5"], null, 2));
-            console.log("pools: " + JSON.stringify(pools, null, 2));
+            // console.log("pools: " + JSON.stringify(pools, null, 2));
             this.trades = trades;
             this.transfers = transfers;
             this.pools = pools;
