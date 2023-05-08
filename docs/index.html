@@ -688,7 +688,7 @@
             // { key: 'include', label: 'Include', sortable: true, thStyle: 'width: 10%;', tdClass: 'text-truncate' },
           ],
           db: {
-            name: "memecoindata089c",
+            name: "memecoindata089d",
             version: 1,
             schemaDefinition: {
               cache: '&objectName',
@@ -919,7 +919,7 @@
             //   collectionFilter = this.settings.filters.collections;
             // }
             const results = [];
-            for (const [txHash, txInfo] of Object.entries(this.trades)) {
+            for (const [txHash, txInfo] of Object.entries(this.trades).slice(0, 100)) {
               const timestamp = this.blockTimestamps[txInfo.blockNumber] || null;
               let info = null;
               const logList = [];
@@ -933,6 +933,7 @@
               const altTxLogs = logList.filter(e => e.type == "alttx");
               const u2Logs = logList.filter(e => e.type == "u2");
               const u3Logs = logList.filter(e => e.type == "u3");
+              console.log("logList: " + JSON.stringify(logList, null, 2));
               // console.log("txLogs: " + JSON.stringify(txLogs, null, 2));
               // console.log("altTxLogs: " + JSON.stringify(altTxLogs, null, 2));
               // console.log("u2Logs: " + JSON.stringify(u2Logs, null, 2));
@@ -1658,6 +1659,7 @@
                         // event Swap(address indexed sender, uint amount0In, uint amount1In, uint amount0Out, uint amount1Out, address indexed to);
                         const [sender, amount0In, amount1In, amount0Out, amount1Out, recipient] = log.args;
                         record = {
+                          source: "u2",
                           type: "Swap",
                           sender,
                           recipient,
@@ -1668,6 +1670,7 @@
                         // event Mint(address indexed sender, uint amount0, uint amount1);
                         const [sender, amount0, amount1] = log.args;
                         record = {
+                          source: "u2",
                           type: "Mint",
                           sender,
                           amount0: amount0.toString(),
@@ -1677,6 +1680,7 @@
                         // event Burn(address indexed sender, uint amount0, uint amount1, address indexed to);
                         const [sender, amount0, amount1, to] = log.args;
                         record = {
+                          source: "u2",
                           type: "Burn",
                           sender,
                           amount0: amount0.toString(),
@@ -1765,6 +1769,7 @@
                       if (log.name == "Swap") {
                         const [sender, recipient, amount0, amount1, sqrtPriceX96, liquidity, tick] = log.args;
                         record = {
+                          source: "u3",
                           type: "Swap",
                           sender,
                           recipient,
@@ -1779,6 +1784,7 @@
                         // event Mint(address sender, address indexed owner, int24 indexed tickLower, int24 indexed tickUpper, uint128 amount, uint256 amount0, uint256 amount1);
                         const [sender, owner, tickLower, tickUpper, amount, amount0, amount1] = log.args;
                         record = {
+                          source: "u3",
                           type: "Mint",
                           sender,
                           owner,
@@ -1792,6 +1798,7 @@
                         // event Collect(address indexed owner, address recipient, int24 indexed tickLower, int24 indexed tickUpper, uint128 amount0, uint128 amount1);
                         const [owner, recipient, tickLower, tickUpper, amount0, amount1] = log.args;
                         record = {
+                          source: "u3",
                           type: "Collect",
                           owner,
                           recipient,
