@@ -260,6 +260,13 @@
                   <div v-if="data.item.info.type == 'tx'">
                     Transfer
                   </div>
+                  <div v-else-if="data.item.info.type == 'addLiquidity'">
+                    Add Liquidity
+                  </div>
+                  <div v-else-if="data.item.info.type == 'trade'">
+                    {{ data.item.info.tradeType }}
+                    <!-- <font size="-2"><pre>{{ data.item }}</pre></font> -->
+                  </div>
                   <div v-else>
                     Unknown
                   </div>
@@ -283,14 +290,42 @@
                 </font>
               </template>
               <template #cell(token)="data">
-                <div v-if="data.item.info">
-                  {{ data.item.info.token }}
-                </div>
+                <font size="-1">
+                  <div v-if="data.item.info">
+                    <div v-if="data.item.info.type == 'addLiquidity'">
+                      {{ data.item.info.tx.token }}
+                      <br />
+                      {{ data.item.info.altTx.token }}
+                    </div>
+                    <div v-else-if="data.item.info.type == 'trade'">
+                      {{ data.item.info.token0.token }}
+                      <br />
+                      {{ data.item.info.token1.token }}
+                    </div>
+                    <div v-else>
+                      {{ data.item.info.token }}
+                    </div>
+                  </div>
+                </font>
               </template>
               <template #cell(tokens)="data">
-                <div v-if="data.item.info">
-                  {{ formatERC20(data.item.info.tokens, 18) }}
-                </div>
+                <font size="-1">
+                  <div v-if="data.item.info">
+                    <div v-if="data.item.info.type == 'addLiquidity'">
+                      {{ formatERC20(data.item.info.tx.tokens, 18) }}
+                      <br />
+                      {{ formatERC20(data.item.info.altTx.tokens, 18) }}
+                    </div>
+                    <div v-else-if="data.item.info.type == 'trade'">
+                      {{ formatERC20(data.item.info.token0.tokens, 18) }}
+                      <br />
+                      {{ formatERC20(data.item.info.token1.tokens, 18) }}
+                    </div>
+                    <div v-else>
+                      {{ formatERC20(data.item.info.tokens, 18) }}
+                    </div>
+                  </div>
+                </font>
               </template>
               <template #cell(token1)="data">
                 <div class="d-flex flex-row">
@@ -617,10 +652,10 @@
             { key: 'number', label: '#', sortable: false, thStyle: 'width: 5%;', tdClass: 'text-truncate' },
             // { key: 'blockNumber', label: 'Block Number', sortable: false, thStyle: 'width: 15%;', tdClass: 'text-truncate' },
             { key: 'timestamp', label: 'When', sortable: false, thStyle: 'width: 15%;', tdClass: 'text-truncate' },
-            { key: 'info', label: 'Info', sortable: false, thStyle: 'width: 40%;', tdClass: 'text-truncate' },
+            { key: 'info', label: 'Info', sortable: false, thStyle: 'width: 30%;', tdClass: 'text-truncate' },
             // { key: 'coin', label: 'Coin', sortable: false, thStyle: 'width: 20%;', tdClass: 'text-truncate' },
-            { key: 'from', label: 'From', sortable: false, thStyle: 'width: 10%;', tdClass: 'text-truncate' },
-            { key: 'to', label: 'To', sortable: false, thStyle: 'width: 10%;', tdClass: 'text-truncate' },
+            { key: 'from', label: 'From', sortable: false, thStyle: 'width: 15%;', tdClass: 'text-truncate' },
+            { key: 'to', label: 'To', sortable: false, thStyle: 'width: 15%;', tdClass: 'text-truncate' },
             { key: 'token', label: 'Token', sortable: false, thStyle: 'width: 10%;', tdClass: 'text-truncate' },
             { key: 'tokens', label: 'Tokens', sortable: false, thStyle: 'width: 10%;', tdClass: 'text-truncate' },
           ],
@@ -884,11 +919,27 @@
             //   collectionFilter = this.settings.filters.collections;
             // }
             const results = [];
-            for (const [txHash, txInfo] of Object.entries(this.trades)) {
+            for (const [txHash, txInfo] of Object.entries(this.trades).slice(0, 100)) {
               const timestamp = this.blockTimestamps[txInfo.blockNumber] || null;
               let info = null;
-              if (Object.keys(txInfo.logs).length == 1) {
-                const txLog = Object.entries(txInfo.logs)[0][1];
+              const logList = [];
+              for (const [logIndex, logInfo] of Object.entries(txInfo.logs)) {
+                logList.push({ logIndex, ...logInfo });
+              }
+              logList.sort((a, b) => {
+                return a.logIndex - b.logIndex;
+              });
+              const txLogs = logList.filter(e => e.type == "tx");
+              const altTxLogs = logList.filter(e => e.type == "alttx");
+              const u2Logs = logList.filter(e => e.type == "u2");
+              const u3Logs = logList.filter(e => e.type == "u3");
+              // console.log("txLogs: " + JSON.stringify(txLogs, null, 2));
+              // console.log("altTxLogs: " + JSON.stringify(altTxLogs, null, 2));
+              // console.log("u2Logs: " + JSON.stringify(u2Logs, null, 2));
+              // console.log("u3Logs: " + JSON.stringify(u3Logs, null, 2));
+
+              if (logList.length == 1 && txLogs.length == 1) {
+                const txLog = txLogs[0];
                 const tokenSymbol = this.settings.coins[txLog.token] && this.settings.coins[txLog.token].symbol || null;
                 info = {
                   type: "tx",
@@ -897,8 +948,55 @@
                   token: tokenSymbol,
                   tokens: txLog.tokens,
                 }
+              } else if (logList.length == 2 && txLogs.length == 1 && altTxLogs.length == 1) {
+                const pool = this.pools[txLogs[0].to] || null;
+                console.log("pool: " + JSON.stringify(pool, null, 2));
+                if (pool) {
+                  info = {
+                    type: "addLiquidity",
+                    tx: {
+                      token: pool.token0.symbol,
+                      tokens: txLogs[0].tokens,
+                    },
+                    altTx: {
+                      token: pool.token1.symbol,
+                      tokens: altTxLogs[0].tokens,
+                    },
+                    from: txLogs[0].from,
+                    to: txLogs[0].to,
+                  }
+                } else {
+                  // TODO
+                }
+              } else if (logList.length == 3 && txLogs.length == 1 && altTxLogs.length == 1) {
+                const uLogs = u2Logs.length == 1 ? u2Logs : u2Logs;
+                const pool = this.pools[uLogs[0].poolAddress] || null;
+                const token0 = {
+                  token: pool.token0.symbol,
+                  tokens: ethers.BigNumber.from(uLogs[0].amount0).mul(-1).toString(),
+                };
+                const token1 = {
+                  token: pool.token1.symbol,
+                  tokens: ethers.BigNumber.from(uLogs[0].amount1).mul(-1).toString(),
+                };
+                let from, tradeType;
+                if (uLogs[0].poolAddress == txLogs[0].from) {
+                  from = txLogs[0].to;
+                  tradeType = "Buy " + pool.token0.symbol;
+                } else {
+                  from = txLogs[0].from;
+                  tradeType = "Sell " + pool.token0.symbol;
+                }
+                info = {
+                  type: "trade",
+                  tradeType,
+                  token0,
+                  token1,
+                  from,
+                  to: uLogs[0].poolAddress,
+                }
               }
-              // if (info) {
+              // if (info && info.type == "trade") {
                 results.push({
                   txHash,
                   blockNumber: txInfo.blockNumber,
@@ -1835,7 +1933,7 @@
                               trades[txHash] = { blockNumber, txIndex, logs: {} };
                             }
                             for (const [logIndex, txData] of Object.entries(logIndexes)) {
-                              trades[txHash].logs[logIndex] = { type: "u2", ...txData };
+                              trades[txHash].logs[logIndex] = { type: "u2", poolAddress, ...txData };
                             }
                           }
                         }
@@ -1885,7 +1983,7 @@
                               trades[txHash] = { blockNumber, txIndex, logs: {} };
                             }
                             for (const [logIndex, txData] of Object.entries(logIndexes)) {
-                              trades[txHash].logs[logIndex] = { type: "u3", ...txData };
+                              trades[txHash].logs[logIndex] = { type: "u3", poolAddress, ...txData };
                             }
                           }
                         }
