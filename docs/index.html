@@ -256,22 +256,43 @@
                 </font>
               </template>
               <template #cell(info)="data">
-                <font size="-2"><pre>{{ data.item.logs }}</pre></font>
+                <div v-if="data.item.info">
+                  <div v-if="data.item.info.type == 'tx'">
+                    Transfer
+                  </div>
+                  <div v-else>
+                    Unknown
+                  </div>
+                </div>
+                <div v-else>
+                  <font size="-2"><pre>{{ data.item }}</pre></font>
+                </div>
               </template>
               <template #cell(from)="data">
-                <b-link :href="'https://etherscan.io/address/' + data.item.from" v-b-popover.hover.bottom="'View account in etherscan.io'" target="_blank">
-                  {{ ensOrAddress(data.item.from) }}
-                </b-link>
+                <font size="-1">
+                  <b-link v-if="data.item.info" :href="'https://etherscan.io/address/' + data.item.info.from" v-b-popover.hover.bottom="'View account in etherscan.io'" target="_blank">
+                    {{ ensOrAddress(data.item.info.from) }}
+                  </b-link>
+                </font>
               </template>
               <template #cell(to)="data">
-                <b-link :href="'https://etherscan.io/address/' + data.item.to" v-b-popover.hover.bottom="'View account in etherscan.io'" target="_blank">
-                  {{ ensOrAddress(data.item.to) }}
-                </b-link>
-              </template>
-              <template #cell(tokens)="data">
-                {{ formatERC20(data.item.tokens, 18) }}
+                <font size="-1">
+                  <b-link v-if="data.item.info" :href="'https://etherscan.io/address/' + data.item.info.to" v-b-popover.hover.bottom="'View account in etherscan.io'" target="_blank">
+                    {{ ensOrAddress(data.item.info.to) }}
+                  </b-link>
+                </font>
               </template>
               <template #cell(token)="data">
+                <div v-if="data.item.info">
+                  {{ data.item.info.token }}
+                </div>
+              </template>
+              <template #cell(tokens)="data">
+                <div v-if="data.item.info">
+                  {{ formatERC20(data.item.info.tokens, 18) }}
+                </div>
+              </template>
+              <template #cell(token1)="data">
                 <div class="d-flex flex-row">
                   <div>
                     <b-avatar rounded variant="light" size="8.0rem" :src="data.item.image">
@@ -596,11 +617,12 @@
             { key: 'number', label: '#', sortable: false, thStyle: 'width: 5%;', tdClass: 'text-truncate' },
             // { key: 'blockNumber', label: 'Block Number', sortable: false, thStyle: 'width: 15%;', tdClass: 'text-truncate' },
             { key: 'timestamp', label: 'When', sortable: false, thStyle: 'width: 15%;', tdClass: 'text-truncate' },
-            { key: 'info', label: 'Info', sortable: false, thStyle: 'width: 80%;', tdClass: 'text-truncate' },
+            { key: 'info', label: 'Info', sortable: false, thStyle: 'width: 40%;', tdClass: 'text-truncate' },
             // { key: 'coin', label: 'Coin', sortable: false, thStyle: 'width: 20%;', tdClass: 'text-truncate' },
-            // { key: 'from', label: 'From', sortable: false, thStyle: 'width: 20%;', tdClass: 'text-truncate' },
-            // { key: 'to', label: 'To', sortable: false, thStyle: 'width: 20%;', tdClass: 'text-truncate' },
-            // { key: 'tokens', label: 'Tokens', sortable: false, thStyle: 'width: 20%;', tdClass: 'text-truncate' },
+            { key: 'from', label: 'From', sortable: false, thStyle: 'width: 10%;', tdClass: 'text-truncate' },
+            { key: 'to', label: 'To', sortable: false, thStyle: 'width: 10%;', tdClass: 'text-truncate' },
+            { key: 'token', label: 'Token', sortable: false, thStyle: 'width: 10%;', tdClass: 'text-truncate' },
+            { key: 'tokens', label: 'Tokens', sortable: false, thStyle: 'width: 10%;', tdClass: 'text-truncate' },
           ],
           tokensFields: [
             { key: 'number', label: '#', sortable: false, thStyle: 'width: 5%;', tdClass: 'text-truncate' },
@@ -863,14 +885,29 @@
             const results = [];
             for (const [txHash, txInfo] of Object.entries(this.trades)) {
               const timestamp = this.blockTimestamps[txInfo.blockNumber] || null;
-              results.push({
-                txHash,
-                blockNumber: txInfo.blockNumber,
-                timestamp,
-                txIndex: txInfo.txIndex,
-                coin: txInfo.token,
-                logs: txInfo.logs,
-              });
+              let info = null;
+              if (Object.keys(txInfo.logs).length == 1) {
+                const txLog = Object.entries(txInfo.logs)[0][1];
+                const tokenSymbol = this.settings.coins[txLog.token] && this.settings.coins[txLog.token].symbol || null;
+                info = {
+                  type: "tx",
+                  from: txLog.from,
+                  to: txLog.to,
+                  token: tokenSymbol,
+                  tokens: txLog.tokens,
+                }
+              }
+              // if (info) {
+                results.push({
+                  txHash,
+                  blockNumber: txInfo.blockNumber,
+                  timestamp,
+                  txIndex: txInfo.txIndex,
+                  coin: txInfo.token,
+                  logs: txInfo.logs,
+                  info,
+                });
+              // }
             }
             // console.log("results[0]: " + JSON.stringify(results && results[0] || {}));
             // for (const [blockNumber, txIndexes] of Object.entries(this.transfers)) {
