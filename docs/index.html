@@ -1175,7 +1175,6 @@
             const block = await provider.getBlock();
             const CONFIRMATIONS = 10;
             const confirmedBlockNumber = block && block.number && (block.number - CONFIRMATIONS) || null;
-            // console.log("confirmedBlockNumber: " + confirmedBlockNumber);
             const db = new Dexie(this.db.name);
             db.version(this.db.version).stores(this.db.schemaDefinition);
             for (const [address, coinInfo] of Object.entries(this.settings.coins)) {
@@ -1246,7 +1245,6 @@
             });
           },
           async syncCoinTransfers(context) {
-            // console.log("syncCoinTransfers: " + context.address + " " + context.symbol);
             this.sync.completed = 0;
             this.sync.total = null;
             this.sync.section = context.symbol + ' Txs';
@@ -1355,7 +1353,6 @@
             return results;
           },
           async syncUniswapV2Pools(context) {
-            // console.log("syncUniswapV2Pools: " + context.address + " " + context.symbol);
             this.sync.completed = 0;
             this.sync.total = null;
             this.sync.section = context.symbol + " UniswapV2Pools";
@@ -1408,7 +1405,6 @@
                 console.log(e);
               }
             }
-            console.log("pools: " + JSON.stringify(pools, null, 2));
             await this.syncBlockTimestamps(context, Object.keys(newBlocks));
             await context.db.cache.put({ objectName: context.address + '_uniswapv2pools', object: pools }).then (function() {
             }).catch(function(error) {
@@ -1416,7 +1412,6 @@
             });
           },
           async syncUniswapV3Pools(context) {
-            // console.log("syncUniswapV3Pools: " + context.address + " " + context.symbol);
             this.sync.completed = 0;
             this.sync.total = null;
             this.sync.section = context.symbol + " UniswapV3Pools";
@@ -1472,7 +1467,6 @@
                 console.log(e);
               }
             }
-            console.log("pools: " + JSON.stringify(pools, null, 2));
             await this.syncBlockTimestamps(context, Object.keys(newBlocks));
             await context.db.cache.put({ objectName: context.address + '_uniswapv3pools', object: pools }).then (function() {
             }).catch(function(error) {
@@ -1480,7 +1474,6 @@
             });
           },
           async syncUniswapV2Trades(context) {
-            // console.log("syncUniswapV2Trades: " + context.address + " " + context.symbol);
             this.sync.completed = 0;
             this.sync.total = null;
             this.sync.section = context.symbol + " UniswapV2Trades";
@@ -1490,7 +1483,7 @@
             const pools = {};
             for (const [blockNumber, poolsCreatedInBlock] of Object.entries(poolsData)) {
               for (const [poolAddress, poolInfo] of Object.entries(poolsCreatedInBlock)) {
-                pools[poolAddress] = { token0: poolInfo.token0, token1: poolInfo.token1 };
+                pools[poolAddress] = { token0: poolInfo.token0, token1: poolInfo.token1, blockNumber };
               }
             }
             // Swap (index_topic_1 address sender, uint256 amount0In, uint256 amount1In, uint256 amount0Out, uint256 amount1Out, index_topic_2 address to)
@@ -1500,8 +1493,7 @@
               const tradesDataObject = await context.db.cache.where("objectName").equals(poolAddress + '_uniswapv2trades').toArray();
               const trades = tradesDataObject.length == 1 ? tradesDataObject[0].object : {};
               const blockNumbers = Object.keys(trades).sort((a, b) => { return b - a });
-              // TODO: startBlock can set to the pool creation blockNumber
-              const startBlock = blockNumbers.length > 0 ? parseInt(blockNumbers[0]) + 1: 0;
+              const startBlock = blockNumbers.length > 0 ? parseInt(blockNumbers[0]) + 1: parseInt(poolInfo.blockNumber);
               let batchSize = 100000000;
               const BATCHREDUCTIONFACTOR = 0.50;
               let done = false;
@@ -1514,6 +1506,7 @@
                 }
                 batchSize = (batchSize > 10) ? batchSize: 10; // avoid divide by 0
                 let toBlock = (parseInt(fromBlock) + batchSize < context.confirmedBlockNumber) ? (parseInt(fromBlock) + batchSize) : context.confirmedBlockNumber;
+                // console.log(moment().format("HH:mm:ss") + " syncUniswapV2Trades #" + fromBlock + "-" + toBlock + " [" + (toBlock - fromBlock) + "/" + batchSize + "]");
                 try {
                   const logs = await context.provider.getLogs({ address: poolAddress, fromBlock, toBlock, topics });
                   for (const event of logs) {
@@ -1563,7 +1556,6 @@
             }
           },
           async syncUniswapV3Trades(context) {
-            // console.log("syncUniswapV3Trades: " + context.address + " " + context.symbol);
             this.sync.completed = 0;
             this.sync.total = null;
             this.sync.section = context.symbol + " UniswapV3Trades";
@@ -1573,7 +1565,7 @@
             const pools = {};
             for (const [blockNumber, poolsCreatedInBlock] of Object.entries(poolsData)) {
               for (const [poolAddress, poolInfo] of Object.entries(poolsCreatedInBlock)) {
-                pools[poolAddress] = { token0: poolInfo.token0, token1: poolInfo.token1 };
+                pools[poolAddress] = { token0: poolInfo.token0, token1: poolInfo.token1, blockNumber };
               }
             }
             // Swap (index_topic_1 address sender, index_topic_2 address recipient, int256 amount0, int256 amount1, uint160 sqrtPriceX96, uint128 liquidity, int24 tick)
@@ -1583,8 +1575,7 @@
               const tradesDataObject = await context.db.cache.where("objectName").equals(poolAddress + '_uniswapv3trades').toArray();
               const trades = tradesDataObject.length == 1 ? tradesDataObject[0].object : {};
               const blockNumbers = Object.keys(trades).sort((a, b) => { return b - a });
-              // TODO: startBlock can set to the pool creation blockNumber
-              const startBlock = blockNumbers.length > 0 ? parseInt(blockNumbers[0]) + 1: 0;
+              const startBlock = blockNumbers.length > 0 ? parseInt(blockNumbers[0]) + 1: parseInt(poolInfo.blockNumber);
               let batchSize = 100000000;
               const BATCHREDUCTIONFACTOR = 0.50;
               let done = false;
@@ -1648,33 +1639,17 @@
             }
           },
           async syncUniswapAltTokenTransfers(context) {
-            // console.log("syncCoinTransfers: " + context.address + " " + context.symbol);
             this.sync.completed = 0;
             this.sync.total = null;
-            this.sync.section = context.symbol + ' AltTknTxs';
-            const dataObject = await context.db.cache.where("objectName").equals(context.address + "_transfers").toArray();
-            const transfers = dataObject.length == 1 ? dataObject[0].object : {};
-            const blockNumbers = Object.keys(transfers).sort((a, b) => { return b - a });
-            const startBlock = blockNumbers.length > 0 ? parseInt(blockNumbers[0]) + 1: 0;
-            let batchSize = 100000000;
-            const BATCHREDUCTIONFACTOR = 0.50;
-            let done = false;
-            let fromBlock = startBlock;
-            let count = 0;
-            let newTransfers = 0;
-            const newBlocks = {};
-            const newAccounts = {};
-
             const poolsToProcess = [];
             for (const [coinAddress, coinInfo] of Object.entries(this.settings.coins)) {
               if (coinInfo.include) {
-                console.log("syncUniswapAltTokenTransfers: " + coinAddress + " " + coinInfo.symbol + " " + coinInfo.name);
                 const uniswapV2PoolsDataObject = await context.db.cache.where("objectName").equals(coinAddress + "_uniswapv2pools").toArray();
                 if (uniswapV2PoolsDataObject.length == 1) {
                   for (const [blockNumber, poolsCreatedInBlock] of Object.entries(uniswapV2PoolsDataObject[0].object)) {
                     for (const [poolAddress, poolInfo] of Object.entries(poolsCreatedInBlock)) {
-                      const altToken = poolInfo.token0.address == coinAddress ? poolInfo.token1.address : poolInfo.token0.address;
-                      poolsToProcess.push({ coinAddress, poolAddress, type: "us2", altToken, created: blockNumber });
+                      const altToken = poolInfo.token0.address == coinAddress ? poolInfo.token1 : poolInfo.token0;
+                      poolsToProcess.push({ coinAddress, poolAddress, type: "us2", altToken, blockNumber });
                     }
                   }
                 }
@@ -1682,86 +1657,87 @@
                 if (uniswapV3PoolsDataObject.length == 1) {
                   for (const [blockNumber, poolsCreatedInBlock] of Object.entries(uniswapV3PoolsDataObject[0].object)) {
                     for (const [poolAddress, poolInfo] of Object.entries(poolsCreatedInBlock)) {
-                      const altToken = poolInfo.token0.address == coinAddress ? poolInfo.token1.address : poolInfo.token0.address;
-                      poolsToProcess.push({ coinAddress, poolAddress, type: "us3", altToken, created: blockNumber });
+                      const altToken = poolInfo.token0.address == coinAddress ? poolInfo.token1 : poolInfo.token0;
+                      poolsToProcess.push({ coinAddress, poolAddress, type: "us3", altToken, blockNumber });
                     }
                   }
                 }
               }
             }
-            console.log("poolsToProcess: " + JSON.stringify(poolsToProcess, null, 2));
-
-
-            // TODO
-            return;
+            let part = 0;
             for (const poolInfo of poolsToProcess) {
-              do {
-                if (batchSize > 1000 && parseInt(fromBlock) + batchSize > context.confirmedBlockNumber) {
-                  batchSize = parseInt((context.confirmedBlockNumber - fromBlock) * 0.75);
-                }
-                batchSize = (batchSize > 10) ? batchSize: 10; // avoid divide by 0
-                let toBlock = (parseInt(fromBlock) + batchSize < context.confirmedBlockNumber) ? (parseInt(fromBlock) + batchSize) : context.confirmedBlockNumber;
-                const transferTopics = [ '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef', null, null ];
-                try {
-                  const logs = await context.provider.getLogs({ address: context.address, fromBlock, toBlock, topics: transferTopics });
-                  for (const event of logs) {
-                    if (!event.removed) {
-                      let from, to, tokens;
-                      if (event.topics.length == 4) {
-                        from = ethers.utils.getAddress('0x' + event.topics[1].substring(26));
-                        to = ethers.utils.getAddress('0x' + event.topics[2].substring(26));
-                        tokens = ethers.BigNumber.from(event.topics[3]).toString();
-                      } else if (event.topics.length == 3) {
-                        from = ethers.utils.getAddress('0x' + event.topics[1].substring(26));
-                        to = ethers.utils.getAddress('0x' + event.topics[2].substring(26));
-                        tokens = ethers.BigNumber.from(event.data).toString();
-                      } else if (event.topics.length == 1) {
-                        from = ethers.utils.getAddress('0x' + event.data.substring(26, 66));
-                        to = ethers.utils.getAddress('0x' + event.data.substring(90, 130));
-                        tokens = ethers.BigNumber.from('0x' + event.data.substring(130, 193)).toString();
-                      }
-                      if (!(event.blockNumber in this.blockTimestamps) && !(event.blockNumber in newBlocks)) {
-                        newBlocks[event.blockNumber] = null;
-                      }
-                      if (!(from in this.ensMap) && !(from in newAccounts)) {
-                        newAccounts[from] = null;
-                      }
-                      if (!(to in this.ensMap) && !(to in newAccounts)) {
-                        newAccounts[to] = null;
-                      }
-                      if (!(event.blockNumber in transfers)) {
-                        transfers[event.blockNumber] = {};
-                      }
-                      if (!(event.transactionIndex in transfers[event.blockNumber])) {
-                        transfers[event.blockNumber][event.transactionIndex] = {};
-                      }
-                      if (!(event.transactionHash in transfers[event.blockNumber][event.transactionIndex])) {
-                        transfers[event.blockNumber][event.transactionIndex][event.transactionHash] = {};
-                      }
-                      if (!(event.logIndex in transfers[event.blockNumber][event.transactionIndex][event.transactionHash])) {
-                        transfers[event.blockNumber][event.transactionIndex][event.transactionHash][event.logIndex] = { from, to, tokens };
-                        newTransfers++;
-                      }
-                    }
-                    count++;
+              const poolAddressAs32Bytes = '0x000000000000000000000000' + poolInfo.poolAddress.substring(2, 42).toLowerCase();
+              const topicsList = [
+                [ '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef', null, poolAddressAs32Bytes ],
+                [ '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef', poolAddressAs32Bytes, null ],
+              ];
+              const dataObject = await context.db.cache.where("objectName").equals(poolInfo.poolAddress + "_" + poolInfo.altToken.address + "_transfers").toArray();
+              const transfers = dataObject.length == 1 ? dataObject[0].object : {};
+              const blockNumbers = Object.keys(transfers).sort((a, b) => { return b - a });
+              for (const [topicsIndex, topics] of topicsList.entries()) {
+                this.sync.section = context.symbol + ' AltTkn ' + (part++);
+                let count = 0;
+                const startBlock = blockNumbers.length > 0 ? parseInt(blockNumbers[0]) + 1: parseInt(poolInfo.blockNumber);
+                let batchSize = 100000000;
+                const BATCHREDUCTIONFACTOR = 0.50;
+                let done = false;
+                let newTransfers = 0;
+                let fromBlock = startBlock;
+                do {
+                  if (batchSize > 1000 && parseInt(fromBlock) + batchSize > context.confirmedBlockNumber) {
+                    batchSize = parseInt((context.confirmedBlockNumber - fromBlock) * 0.75);
                   }
-                  this.sync.completed = count;
-                  console.log(moment().format("HH:mm:ss") + " syncCoinTransfers " + context.address.substring(0, 10) + " " + context.symbol + " #" + fromBlock + "-" + toBlock + " [" + (toBlock - fromBlock) + "/" + batchSize + "] newTransfers: " + newTransfers);
-                  fromBlock = toBlock;
-                } catch (e) {
-                  console.log(e);
-                  batchSize = parseInt(batchSize * BATCHREDUCTIONFACTOR);
-                }
-                done = fromBlock >= context.confirmedBlockNumber;
-              } while (!done && !this.sync.halt);
+                  batchSize = (batchSize > 10) ? batchSize: 10; // avoid divide by 0
+                  let toBlock = (parseInt(fromBlock) + batchSize < context.confirmedBlockNumber) ? (parseInt(fromBlock) + batchSize) : context.confirmedBlockNumber;
+                  try {
+                    const logs = await context.provider.getLogs({ address: poolInfo.altToken.address, fromBlock, toBlock, topics });
+                    for (const event of logs) {
+                      if (!event.removed) {
+                        let from, to, tokens;
+                        if (event.topics.length == 4) {
+                          from = ethers.utils.getAddress('0x' + event.topics[1].substring(26));
+                          to = ethers.utils.getAddress('0x' + event.topics[2].substring(26));
+                          tokens = ethers.BigNumber.from(event.topics[3]).toString();
+                        } else if (event.topics.length == 3) {
+                          from = ethers.utils.getAddress('0x' + event.topics[1].substring(26));
+                          to = ethers.utils.getAddress('0x' + event.topics[2].substring(26));
+                          tokens = ethers.BigNumber.from(event.data).toString();
+                        } else if (event.topics.length == 1) {
+                          from = ethers.utils.getAddress('0x' + event.data.substring(26, 66));
+                          to = ethers.utils.getAddress('0x' + event.data.substring(90, 130));
+                          tokens = ethers.BigNumber.from('0x' + event.data.substring(130, 193)).toString();
+                        }
+                        if (!(event.blockNumber in transfers)) {
+                          transfers[event.blockNumber] = {};
+                        }
+                        if (!(event.transactionIndex in transfers[event.blockNumber])) {
+                          transfers[event.blockNumber][event.transactionIndex] = {};
+                        }
+                        if (!(event.transactionHash in transfers[event.blockNumber][event.transactionIndex])) {
+                          transfers[event.blockNumber][event.transactionIndex][event.transactionHash] = {};
+                        }
+                        if (!(event.logIndex in transfers[event.blockNumber][event.transactionIndex][event.transactionHash])) {
+                          transfers[event.blockNumber][event.transactionIndex][event.transactionHash][event.logIndex] = { from, to, tokens };
+                          newTransfers++;
+                        }
+                      }
+                      count++;
+                    }
+                    this.sync.completed = count;
+                    console.log(moment().format("HH:mm:ss") + " syncUniswapAltTokenTransfers " + context.address.substring(0, 10) + " " + context.symbol + "<->" + poolInfo.altToken.symbol + " #" + fromBlock + "-" + toBlock + " [" + (toBlock - fromBlock) + "/" + batchSize + "] newTransfers: " + newTransfers);
+                    fromBlock = toBlock;
+                  } catch (e) {
+                    console.log(e);
+                    batchSize = parseInt(batchSize * BATCHREDUCTIONFACTOR);
+                  }
+                  done = fromBlock >= context.confirmedBlockNumber;
+                } while (!done && !this.sync.halt);
+              }
+              await context.db.cache.put({ objectName: poolInfo.poolAddress + "_" + poolInfo.altToken.address + "_transfers", object: transfers }).then (function() {
+              }).catch(function(error) {
+                console.log("error: " + error);
+              });
             }
-            newAccounts[this.coinbase] = null;
-            await this.syncENSNames(context, Object.keys(newAccounts));
-            await this.syncBlockTimestamps(context, Object.keys(newBlocks));
-            await context.db.cache.put({ objectName: context.address + "_transfers", object: transfers }).then (function() {
-            }).catch(function(error) {
-              console.log("error: " + error);
-            });
           },
           async loadCurrentData() {
             const db = new Dexie(this.db.name);
