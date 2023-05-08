@@ -919,7 +919,7 @@
             //   collectionFilter = this.settings.filters.collections;
             // }
             const results = [];
-            for (const [txHash, txInfo] of Object.entries(this.trades).slice(0, 100)) {
+            for (const [txHash, txInfo] of Object.entries(this.trades)) {
               const timestamp = this.blockTimestamps[txInfo.blockNumber] || null;
               let info = null;
               const logList = [];
@@ -933,7 +933,7 @@
               const altTxLogs = logList.filter(e => e.type == "alttx");
               const u2Logs = logList.filter(e => e.type == "u2");
               const u3Logs = logList.filter(e => e.type == "u3");
-              console.log("logList: " + JSON.stringify(logList, null, 2));
+              // console.log("logList: " + JSON.stringify(logList, null, 2));
               // console.log("txLogs: " + JSON.stringify(txLogs, null, 2));
               // console.log("altTxLogs: " + JSON.stringify(altTxLogs, null, 2));
               // console.log("u2Logs: " + JSON.stringify(u2Logs, null, 2));
