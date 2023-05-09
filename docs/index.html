@@ -340,65 +340,39 @@
                     </div>
                   </div>
                 </div>
-                <!--
-                <font size="-1">
-                  <div v-if="data.item.info">
-                    <div v-if="data.item.info.type == 'addLiquidity'">
-                      {{ data.item.info.tx.token }}
-                      <br />
-                      {{ data.item.info.altTx.token }}
-                    </div>
-                    <div v-else-if="data.item.info.type == 'trade'">
-                      {{ data.item.info.token0.token }}
-                      <br />
-                      {{ data.item.info.token1.token }}
-                    </div>
-                    <div v-else>
-                      {{ data.item.info.token }}
-                    </div>
-                  </div>
-                </font>
-                -->
               </template>
               <template #cell(tokens)="data">
                 <div v-if="data.item.actions">
                   <div v-for="action of data.item.actions">
                     <div v-if="action.token0">
                       <font size="-2">
-                        {{ action.token0.tokens }}
+                        {{ formatERC20(action.token0.tokens, action.token0.decimals) }}
                       </font>
                       <br />
                       <font size="-2">
-                        {{ action.token1.tokens }}
+                        {{ formatERC20(action.token1.tokens, action.token1.decimals) }}
                       </font>
                     </div>
                     <div v-else>
                       <font size="-2">
-                        {{ action.tokens }}
+                        {{ formatERC20(action.tokens, action.decimals) }}
                       </font>
                       <br />
                     </div>
                   </div>
                 </div>
-                <!--
-                <font size="-1">
-                  <div v-if="data.item.info">
-                    <div v-if="data.item.info.type == 'addLiquidity'">
-                      {{ formatERC20(data.item.info.tx.tokens, 18) }}
-                      <br />
-                      {{ formatERC20(data.item.info.altTx.tokens, 18) }}
+              </template>
+              <template #cell(rate)="data">
+                <div v-if="data.item.actions">
+                  <div v-for="action of data.item.actions">
+                    <div v-if="action.rate">
+                      <font size="-2">
+                        {{ formatERC20(action.rate, 18) }}
+                      </font>
                     </div>
-                    <div v-else-if="data.item.info.type == 'trade'">
-                      {{ formatERC20(data.item.info.token0.tokens, 18) }}
-                      <br />
-                      {{ formatERC20(data.item.info.token1.tokens, 18) }}
-                    </div>
-                    <div v-else>
-                      {{ formatERC20(data.item.info.tokens, 18) }}
-                    </div>
+                    <br />
                   </div>
-                </font>
-                -->
+                </div>
               </template>
               <template #cell(token1)="data">
                 <div class="d-flex flex-row">
@@ -727,10 +701,11 @@
             { key: 'timestamp', label: 'When', sortable: false, thStyle: 'width: 15%;', tdClass: 'text-truncate' },
             { key: 'info', label: 'Info', sortable: false, thStyle: 'width: 25%;', tdClass: 'text-truncate' },
             // { key: 'coin', label: 'Coin', sortable: false, thStyle: 'width: 20%;', tdClass: 'text-truncate' },
-            { key: 'from', label: 'From', sortable: false, thStyle: 'width: 15%;', tdClass: 'text-truncate' },
-            { key: 'to', label: 'To', sortable: false, thStyle: 'width: 15%;', tdClass: 'text-truncate' },
+            { key: 'from', label: 'From', sortable: false, thStyle: 'width: 12%;', tdClass: 'text-truncate' },
+            { key: 'to', label: 'To', sortable: false, thStyle: 'width: 13%;', tdClass: 'text-truncate' },
+            { key: 'tokens', label: 'Tokens', sortable: false, thStyle: 'width: 15%;', thClass: 'text-right', tdClass: 'text-right' },
             { key: 'token', label: 'Token', sortable: false, thStyle: 'width: 5%;', tdClass: 'text-truncate' },
-            { key: 'tokens', label: 'Tokens', sortable: false, thStyle: 'width: 20%;', thClass: 'text-right', tdClass: 'text-right' },
+            { key: 'rate', label: 'Rate', sortable: false, thStyle: 'width: 10%;', tdClass: 'text-truncate' },
           ],
           tokensFields: [
             { key: 'number', label: '#', sortable: false, thStyle: 'width: 5%;', tdClass: 'text-truncate' },
@@ -1023,12 +998,14 @@
                 actions = [];
                 for (const [logDataIndex, logData] of txLogs.entries()) {
                   const tokenSymbol = this.settings.coins[logData.token] && this.settings.coins[logData.token].symbol || null;
+                  const decimals = this.settings.coins[logData.token] && this.settings.coins[logData.token].decimals || 18;
                   actions.push({
                     logIndex: logData.logIndex,
                     type: "tx",
                     from: logData.from,
                     to: logData.to,
                     token: tokenSymbol,
+                    decimals,
                     tokens: logData.tokens,
                   });
                 }
@@ -1057,10 +1034,12 @@
                         type: "addLiquidity",
                         token0: {
                           token: pool.token0.symbol,
+                          decimals: pool.token0.decimals,
                           tokens: ethers.BigNumber.from(logData.amount0).toString(),
                         },
                         token1: {
                           token: pool.token1.symbol,
+                          decimals: pool.token1.decimals,
                           tokens: ethers.BigNumber.from(logData.amount1).toString(),
                         },
                         from,
@@ -1070,24 +1049,34 @@
                       // console.log("pool: " + JSON.stringify(pool, null, 2));
                       const token0 = {
                         token: pool.token0.symbol,
+                        decimals: pool.token0.decimals,
                         tokens: ethers.BigNumber.from(logData.amount0).mul(-1).toString(),
                       };
                       const token1 = {
                         token: pool.token1.symbol,
+                        decimals: pool.token1.decimals,
                         tokens: ethers.BigNumber.from(logData.amount1).mul(-1).toString(),
                       };
                       let tradeType;
+                      let rate = null;
+                      const MINUSTEN18 = ethers.BigNumber.from(10).pow(18).mul(-1);
                       if (pool.coin == pool.token0.address) {
                         if (ethers.BigNumber.from(token0.tokens).gt(0)) {
                           tradeType = "Buy " + pool.token0.symbol;
                         } else {
                           tradeType = "Sell " + pool.token0.symbol;
                         }
+                        if (!ethers.BigNumber.from(token0.tokens).eq(0)) {
+                          rate = ethers.BigNumber.from(token1.tokens).mul(MINUSTEN18).div(ethers.BigNumber.from(token0.tokens)).toString();
+                        }
                       } else {
                         if (ethers.BigNumber.from(token1.tokens).gt(0)) {
                           tradeType = "Buy " + pool.token1.symbol;
                         } else {
                           tradeType = "Sell " + pool.token1.symbol;
+                        }
+                        if (!ethers.BigNumber.from(token1.tokens).eq(0)) {
+                          rate = ethers.BigNumber.from(token0.tokens).mul(MINUSTEN18).div(ethers.BigNumber.from(token1.tokens)).toString();
                         }
                       }
                       actions.push({
@@ -1097,6 +1086,37 @@
                         token1,
                         from: logData.recipient,
                         to: logData.poolAddress,
+                        rate,
+                      });
+                    } else if (logData.type == "Burn") {
+                      actions.push({
+                        type: "burn",
+                        logData,
+                        // tradeType,
+                        // token0,
+                        // token1,
+                        // from: logData.recipient,
+                        // to: logData.poolAddress,
+                      });
+                    } else if (logData.type == "Collect") {
+                      actions.push({
+                        type: "Collect",
+                        token0: {
+                          token: pool.token0.symbol,
+                          decimals: pool.token0.decimals,
+                          tokens: ethers.BigNumber.from(logData.amount0).toString(),
+                        },
+                        token1: {
+                          token: pool.token1.symbol,
+                          decimals: pool.token1.decimals,
+                          tokens: ethers.BigNumber.from(logData.amount1).toString(),
+                        },
+                        // tradeType,
+                        // token0,
+                        // token1,
+                        from: logData.poolAddress,
+                        to: logData.recipient,
+                        rate: 2.34,
                       });
                     }
                   }
@@ -1154,6 +1174,7 @@
               // if (actions && actions.type == "trade") {
               // if (uLogs.length == 1 && txHash == "0x9f22ce032b8ff79fccd20f3465d0a09efc293afac3936035de5d7496276cb1eb") {
               // if (uLogs.length == 0 && txLogs.length > 1) {
+              // if (txHash == "0x222c541878cf98dacd004e833bfa63a661521679c9c90a970ed47b1cd0d1e3b0") {
                 results.push({
                   txHash,
                   blockNumber: txInfo.blockNumber,
@@ -1971,6 +1992,7 @@
                         // event Burn(address indexed owner, int24 indexed tickLower, int24 indexed tickUpper, uint128 amount, uint256 amount0, uint256 amount1);
                         const [owner, tickLower, tickUpper, amount, amount0, amount1] = log.args;
                         record = {
+                          source: "u3",
                           type: "Burn",
                           owner,
                           tickLower: tickLower.toString(),
