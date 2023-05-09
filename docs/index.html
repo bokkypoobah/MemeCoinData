@@ -256,6 +256,13 @@
                 </font>
               </template>
               <template #cell(info)="data">
+                <div v-if="data.item.actions">
+                  <div v-for="action of data.item.actions">
+                    <font size="-2"><pre>{{ action.type }}</pre></font>
+                    <br />
+                  </div>
+                </div>
+                <!--
                 <div v-if="data.item.info">
                   <div v-if="data.item.info.type == 'tx'">
                     Transfer
@@ -263,9 +270,8 @@
                   <div v-else-if="data.item.info.type == 'addLiquidity'">
                     Add Liquidity
                   </div>
-                  <div v-else-if="data.item.info.type == 'trade'">
-                    {{ data.item.info.tradeType }}
-                    <!-- <font size="-2"><pre>{{ data.item }}</pre></font> -->
+                  <div v-else-if="data.item.info.type == 'dex'">
+                    DEX: <font size="-2"><pre>{{ data.item }}</pre></font>
                   </div>
                   <div v-else>
                     Unknown
@@ -274,22 +280,67 @@
                 <div v-else>
                   <font size="-2"><pre>{{ data.item }}</pre></font>
                 </div>
+                -->
               </template>
               <template #cell(from)="data">
-                <font size="-1">
+                <div v-if="data.item.actions">
+                  <div v-for="action of data.item.actions">
+                    <font size="-2">
+                      <b-link v-if="action.from" :href="'https://etherscan.io/address/' + action.from" v-b-popover.hover.bottom="'View account in etherscan.io'" target="_blank">
+                        {{ ensOrAddress(action.from) }}
+                      </b-link>
+                    </font>
+                    <br />
+                  </div>
+                </div>
+                <!--
+                <font size="-2">
                   <b-link v-if="data.item.info" :href="'https://etherscan.io/address/' + data.item.info.from" v-b-popover.hover.bottom="'View account in etherscan.io'" target="_blank">
                     {{ ensOrAddress(data.item.info.from) }}
                   </b-link>
                 </font>
+                -->
               </template>
               <template #cell(to)="data">
-                <font size="-1">
+                <div v-if="data.item.actions">
+                  <div v-for="action of data.item.actions">
+                    <font size="-2">
+                      <b-link v-if="action.to" :href="'https://etherscan.io/address/' + action.to" v-b-popover.hover.bottom="'View account in etherscan.io'" target="_blank">
+                        {{ ensOrAddress(action.to) }}
+                      </b-link>
+                    </font>
+                    <br />
+                  </div>
+                </div>
+                <!--
+                <font size="-2">
                   <b-link v-if="data.item.info" :href="'https://etherscan.io/address/' + data.item.info.to" v-b-popover.hover.bottom="'View account in etherscan.io'" target="_blank">
                     {{ ensOrAddress(data.item.info.to) }}
                   </b-link>
                 </font>
+                -->
               </template>
               <template #cell(token)="data">
+                <div v-if="data.item.actions">
+                  <div v-for="action of data.item.actions">
+                    <div v-if="action.token0">
+                      <font size="-2">
+                        {{ action.token0.token }}
+                      </font>
+                      <br />
+                      <font size="-2">
+                        {{ action.token1.token }}
+                      </font>
+                    </div>
+                    <div v-else>
+                      <font size="-2">
+                        {{ action.token }}
+                      </font>
+                      <br />
+                    </div>
+                  </div>
+                </div>
+                <!--
                 <font size="-1">
                   <div v-if="data.item.info">
                     <div v-if="data.item.info.type == 'addLiquidity'">
@@ -307,8 +358,29 @@
                     </div>
                   </div>
                 </font>
+                -->
               </template>
               <template #cell(tokens)="data">
+                <div v-if="data.item.actions">
+                  <div v-for="action of data.item.actions">
+                    <div v-if="action.token0">
+                      <font size="-2">
+                        {{ action.token0.tokens }}
+                      </font>
+                      <br />
+                      <font size="-2">
+                        {{ action.token1.tokens }}
+                      </font>
+                    </div>
+                    <div v-else>
+                      <font size="-2">
+                        {{ action.tokens }}
+                      </font>
+                      <br />
+                    </div>
+                  </div>
+                </div>
+                <!--
                 <font size="-1">
                   <div v-if="data.item.info">
                     <div v-if="data.item.info.type == 'addLiquidity'">
@@ -326,6 +398,7 @@
                     </div>
                   </div>
                 </font>
+                -->
               </template>
               <template #cell(token1)="data">
                 <div class="d-flex flex-row">
@@ -688,7 +761,7 @@
             // { key: 'include', label: 'Include', sortable: true, thStyle: 'width: 10%;', tdClass: 'text-truncate' },
           ],
           db: {
-            name: "memecoindata089d",
+            name: "memecoindata089e",
             version: 1,
             schemaDefinition: {
               cache: '&objectName',
@@ -919,9 +992,10 @@
             //   collectionFilter = this.settings.filters.collections;
             // }
             const results = [];
+            // multi for (const [txHash, txInfo] of Object.entries(this.trades).slice(900, 950)) {
             for (const [txHash, txInfo] of Object.entries(this.trades)) {
               const timestamp = this.blockTimestamps[txInfo.blockNumber] || null;
-              let info = null;
+              let actions = null;
               const logList = [];
               for (const [logIndex, logInfo] of Object.entries(txInfo.logs)) {
                 logList.push({ logIndex, ...logInfo });
@@ -932,37 +1006,108 @@
               const txLogs = logList.filter(e => e.type == "tx");
               const altTxLogs = logList.filter(e => e.type == "alttx");
               const uLogs = logList.filter(e => e.source == "u2" || e.source == "u3");
-              const u2Logs = logList.filter(e => e.source == "u2");
-              const u3Logs = logList.filter(e => e.source == "u3");
+              // const u2Logs = logList.filter(e => e.source == "u2");
+              // const u3Logs = logList.filter(e => e.source == "u3");
               // console.log("logList: " + JSON.stringify(logList, null, 2));
               // console.log("txLogs: " + JSON.stringify(txLogs, null, 2));
               // console.log("altTxLogs: " + JSON.stringify(altTxLogs, null, 2));
-              if (uLogs.length > 1) {
-                // console.log("uLogs: " + JSON.stringify(uLogs, null, 2));
-              }
+              // if (uLogs.length > 1) {
+              //   console.log("uLogs: " + JSON.stringify(uLogs, null, 2));
+              // }
               // console.log("u2Logs: " + JSON.stringify(u2Logs, null, 2));
               // console.log("u3Logs: " + JSON.stringify(u3Logs, null, 2));
 
-              if (logList.length == 1 && txLogs.length == 1) {
-                const txLog = txLogs[0];
-                const tokenSymbol = this.settings.coins[txLog.token] && this.settings.coins[txLog.token].symbol || null;
-                info = {
-                  type: "tx",
-                  from: txLog.from,
-                  to: txLog.to,
-                  token: tokenSymbol,
-                  tokens: txLog.tokens,
+              if (uLogs.length == 0 && txLogs.length > 0) {
+                // console.log("txHash: " + txHash);
+                // console.log("txLogs: " + JSON.stringify(txLogs, null, 2));
+                actions = [];
+                for (const [logDataIndex, logData] of txLogs.entries()) {
+                  const tokenSymbol = this.settings.coins[logData.token] && this.settings.coins[logData.token].symbol || null;
+                  actions.push({
+                    logIndex: logData.logIndex,
+                    type: "tx",
+                    from: logData.from,
+                    to: logData.to,
+                    token: tokenSymbol,
+                    tokens: logData.tokens,
+                  });
                 }
-              } else if (uLogs.length == 1) {
-                const uLog = uLogs[0];
-                const pool = this.pools[uLog.poolAddress] || null;
+                // console.log("actions: " + JSON.stringify(actions, null, 2));
+                //
+                // const txLog = txLogs[0];
+                // const tokenSymbol = this.settings.coins[txLog.token] && this.settings.coins[txLog.token].symbol || null;
+                // actions = [{
+                //   type: "tx",
+                //   from: txLog.from,
+                //   to: txLog.to,
+                //   token: tokenSymbol,
+                //   tokens: txLog.tokens,
+                // }];
+              } else if (uLogs.length > 0) {
+                // console.log("uLogs: " + JSON.stringify(uLogs, null, 2));
+                actions = [];
+                for (const [logDataIndex, logData] of uLogs.entries()) {
+                  // console.log("uLog[" + logDataIndex + "]: " + JSON.stringify(logData, null, 2));
+                  const pool = this.pools[logData.poolAddress] || null;
+                  if (pool) {
+                    // console.log("pool: " + JSON.stringify(pool, null, 2));
+                    if (logData.type == "Mint") {
+                      const from = txLogs[0] && txLogs[0].from || null;
+                      actions.push({
+                        type: "addLiquidity",
+                        token0: {
+                          token: pool.token0.symbol,
+                          tokens: ethers.BigNumber.from(logData.amount0).toString(),
+                        },
+                        token1: {
+                          token: pool.token1.symbol,
+                          tokens: ethers.BigNumber.from(logData.amount1).toString(),
+                        },
+                        from,
+                        to: logData.poolAddress,
+                      });
+                    } else if (logData.type == "Swap") {
+                      // console.log("pool: " + JSON.stringify(pool, null, 2));
+                      const token0 = {
+                        token: pool.token0.symbol,
+                        tokens: ethers.BigNumber.from(logData.amount0).mul(-1).toString(),
+                      };
+                      const token1 = {
+                        token: pool.token1.symbol,
+                        tokens: ethers.BigNumber.from(logData.amount1).mul(-1).toString(),
+                      };
+                      let tradeType;
+                      if (pool.coin == pool.token0.address) {
+                        if (ethers.BigNumber.from(token0.tokens).gt(0)) {
+                          tradeType = "Buy " + pool.token0.symbol;
+                        } else {
+                          tradeType = "Sell " + pool.token0.symbol;
+                        }
+                      } else {
+                        if (ethers.BigNumber.from(token1.tokens).gt(0)) {
+                          tradeType = "Buy " + pool.token1.symbol;
+                        } else {
+                          tradeType = "Sell " + pool.token1.symbol;
+                        }
+                      }
+                      actions.push({
+                        type: "trade",
+                        tradeType,
+                        token0,
+                        token1,
+                        from: logData.recipient,
+                        to: logData.poolAddress,
+                      });
+                    }
+                  }
+                }
+                // const uLog = uLogs[0];
+                // const pool = this.pools[uLog.poolAddress] || null;
                 // console.log("pool: " + JSON.stringify(pool, null, 2));
-              } else if (uLogs.length > 1) {
-                // TODO
               } else if (logList.length == 2 && txLogs.length == 1 && altTxLogs.length == 1 && false) {
                 const pool = this.pools[txLogs[0].to] || null;
                 if (pool) {
-                  info = {
+                  actions = [{
                     type: "addLiquidity",
                     tx: {
                       token: pool.token0.symbol,
@@ -974,7 +1119,7 @@
                     },
                     from: txLogs[0].from,
                     to: txLogs[0].to,
-                  }
+                  }];
                 } else {
                   // TODO
                 }
@@ -992,22 +1137,23 @@
                 let from, tradeType;
                 if (uLogs[0].poolAddress == txLogs[0].from) {
                   from = txLogs[0].to;
-                  tradeType = "Buy " + pool.token0.symbol;
+                  tradeType = (pool.coin == pool.token0.address) ? "Buy " + pool.token0.symbol : "Sell " + pool.token1.symbol;
                 } else {
                   from = txLogs[0].from;
-                  tradeType = "Sell " + pool.token0.symbol;
+                  tradeType = (pool.coin == pool.token0.address) ? "Sell " + pool.token0.symbol :  "Buy " + pool.token1.symbol;
                 }
-                info = {
+                actions = [{
                   type: "trade",
                   tradeType,
                   token0,
                   token1,
                   from,
                   to: uLogs[0].poolAddress,
-                }
+                }];
               }
-              // if (info && info.type == "trade") {
-              // if (uLogs.length == 1) {
+              // if (actions && actions.type == "trade") {
+              // if (uLogs.length == 1 && txHash == "0x9f22ce032b8ff79fccd20f3465d0a09efc293afac3936035de5d7496276cb1eb") {
+              // if (uLogs.length == 0 && txLogs.length > 1) {
                 results.push({
                   txHash,
                   blockNumber: txInfo.blockNumber,
@@ -1015,8 +1161,9 @@
                   txIndex: txInfo.txIndex,
                   coin: txInfo.token,
                   logs: txInfo.logs,
-                  info,
+                  actions,
                 });
+                // console.log("results: " + JSON.stringify(results, null, 2));
               // }
             }
             // console.log("results[0]: " + JSON.stringify(results && results[0] || {}));
@@ -1536,6 +1683,7 @@
                       const token1 = await this.getERC20TokenDetails(context, ethers.utils.getAddress('0x' + event.topics[2].substring(26)));
                       pools[event.blockNumber][poolAddress] = {
                         name: "Uni2 " + token0.symbol + "/" + token1.symbol,
+                        coin: context.address,
                         token0,
                         token1,
                         factory: event.address,
@@ -1599,6 +1747,7 @@
                       const token1 = await this.getERC20TokenDetails(context, ethers.utils.getAddress('0x' + event.topics[2].substring(26)));
                       pools[event.blockNumber][poolAddress] = {
                         name: "Uni3 " + token0.symbol + "/" + token1.symbol + " " + ethers.utils.formatUnits(event.topics[3], 4) + "%",
+                        coin: context.address,
                         token0,
                         token1,
                         fee: ethers.BigNumber.from(event.topics[3]).toString(),
@@ -2006,6 +2155,7 @@
                       const tradesData = tradesDataObject.length == 1 ? tradesDataObject[0].object : {};
                       pools[poolAddress] = {
                         name: poolInfo.name,
+                        coin: poolInfo.coin,
                         token0: poolInfo.token0,
                         token1: poolInfo.token1,
                         transactionHash: poolInfo.transactionHash,
@@ -2054,6 +2204,7 @@
                       const tradesData = tradesDataObject.length == 1 ? tradesDataObject[0].object : {};
                       pools[poolAddress] = {
                         name: poolInfo.name,
+                        coin: poolInfo.coin,
                         token0: poolInfo.token0,
                         token1: poolInfo.token1,
                         fee: poolInfo.fee,
