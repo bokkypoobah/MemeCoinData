@@ -1001,7 +1001,7 @@
                   const decimals = this.settings.coins[logData.token] && this.settings.coins[logData.token].decimals || 18;
                   actions.push({
                     logIndex: logData.logIndex,
-                    type: "tx",
+                    type: "Transfer",
                     from: logData.from,
                     to: logData.to,
                     token: tokenSymbol,
@@ -1039,20 +1039,20 @@
                         decimals: pool.token1.decimals,
                         tokens: ethers.BigNumber.from(logData.amount1).mul(-1).toString(),
                       };
-                      const MINUSTEN18 = ethers.BigNumber.from(10).pow(18).mul(-1);
+                      const TENMINUS18 = ethers.BigNumber.from(10).pow(18).mul(-1);
                       let rate;
                       if (pool.coin == pool.token0.address) {
                         if (!ethers.BigNumber.from(token0.tokens).eq(0)) {
-                          rate = ethers.BigNumber.from(token1.tokens).mul(MINUSTEN18).div(ethers.BigNumber.from(token0.tokens)).toString();
+                          rate = ethers.BigNumber.from(token1.tokens).mul(TENMINUS18).div(ethers.BigNumber.from(token0.tokens)).toString();
                         }
                       } else {
                         if (!ethers.BigNumber.from(token1.tokens).eq(0)) {
-                          rate = ethers.BigNumber.from(token0.tokens).mul(MINUSTEN18).div(ethers.BigNumber.from(token1.tokens)).toString();
+                          rate = ethers.BigNumber.from(token0.tokens).mul(TENMINUS18).div(ethers.BigNumber.from(token1.tokens)).toString();
                         }
                       }
                       const from = logData && logData.from || null;
                       actions.push({
-                        type: "addLiquidity",
+                        type: "Add Liquidity",
                         token0,
                         token1,
                         from,
@@ -1072,7 +1072,7 @@
                       };
                       let tradeType;
                       let rate = null;
-                      const MINUSTEN18 = ethers.BigNumber.from(10).pow(18).mul(-1);
+                      const TENMINUS18 = ethers.BigNumber.from(10).pow(18).mul(-1);
                       if (pool.coin == pool.token0.address) {
                         if (ethers.BigNumber.from(token0.tokens).gt(0)) {
                           tradeType = "Buy " + pool.token0.symbol;
@@ -1080,7 +1080,7 @@
                           tradeType = "Sell " + pool.token0.symbol;
                         }
                         if (!ethers.BigNumber.from(token0.tokens).eq(0)) {
-                          rate = ethers.BigNumber.from(token1.tokens).mul(MINUSTEN18).div(ethers.BigNumber.from(token0.tokens)).toString();
+                          rate = ethers.BigNumber.from(token1.tokens).mul(TENMINUS18).div(ethers.BigNumber.from(token0.tokens)).toString();
                         }
                       } else {
                         if (ethers.BigNumber.from(token1.tokens).gt(0)) {
@@ -1089,7 +1089,7 @@
                           tradeType = "Sell " + pool.token1.symbol;
                         }
                         if (!ethers.BigNumber.from(token1.tokens).eq(0)) {
-                          rate = ethers.BigNumber.from(token0.tokens).mul(MINUSTEN18).div(ethers.BigNumber.from(token1.tokens)).toString();
+                          rate = ethers.BigNumber.from(token0.tokens).mul(TENMINUS18).div(ethers.BigNumber.from(token1.tokens)).toString();
                         }
                       }
                       actions.push({
@@ -1101,9 +1101,9 @@
                         rate,
                       });
                     } else if (logData.type == "Burn") {
-                      console.log("logData: " + JSON.stringify(logData, null, 2));
+                      // console.log("logData: " + JSON.stringify(logData, null, 2));
                       actions.push({
-                        type: "burn",
+                        type: "Burn",
                         logData,
                         // tradeType,
                         // token0,
@@ -1122,15 +1122,15 @@
                         decimals: pool.token1.decimals,
                         tokens: ethers.BigNumber.from(logData.amount1).mul(-1).toString(),
                       };
-                      const MINUSTEN18 = ethers.BigNumber.from(10).pow(18).mul(-1);
+                      const TENMINUS18 = ethers.BigNumber.from(10).pow(18).mul(-1);
                       let rate;
                       if (pool.coin == pool.token0.address) {
                         if (!ethers.BigNumber.from(token0.tokens).eq(0)) {
-                          rate = ethers.BigNumber.from(token1.tokens).mul(MINUSTEN18).div(ethers.BigNumber.from(token0.tokens)).toString();
+                          rate = ethers.BigNumber.from(token1.tokens).mul(TENMINUS18).div(ethers.BigNumber.from(token0.tokens)).toString();
                         }
                       } else {
                         if (!ethers.BigNumber.from(token1.tokens).eq(0)) {
-                          rate = ethers.BigNumber.from(token0.tokens).mul(MINUSTEN18).div(ethers.BigNumber.from(token1.tokens)).toString();
+                          rate = ethers.BigNumber.from(token0.tokens).mul(TENMINUS18).div(ethers.BigNumber.from(token1.tokens)).toString();
                         }
                       }
                       actions.push({
@@ -1483,6 +1483,9 @@
             await this.loadCurrentData();
           },
           async syncBlockTimestamps(context, newBlocks) {
+            this.sync.completed = 0;
+            this.sync.total = newBlocks.length;
+            this.sync.section = context.symbol + ' Timestamps';
             const BATCHSIZE = 1000;
             for (let i = 0; i < newBlocks.length; i += BATCHSIZE) {
               const batch = newBlocks.slice(i, parseInt(i) + BATCHSIZE);
@@ -1504,6 +1507,7 @@
               for (const timestampItem of timestamps) {
                 Vue.set(this.blockTimestamps, timestampItem.number, timestampItem.timestamp);
               }
+              this.sync.completed += timestamps.length;
             }
             await context.db.cache.put({ objectName: "blockTimestamps", object: this.blockTimestamps }).then (function() {
             }).catch(function(error) {
@@ -1677,7 +1681,7 @@
                       const token0 = await this.getERC20TokenDetails(context, ethers.utils.getAddress('0x' + event.topics[1].substring(26)));
                       const token1 = await this.getERC20TokenDetails(context, ethers.utils.getAddress('0x' + event.topics[2].substring(26)));
                       pools[event.blockNumber][poolAddress] = {
-                        name: "Uni2 " + token0.symbol + "/" + token1.symbol,
+                        name: "U2 " + token0.symbol + "/" + token1.symbol,
                         coin: context.address,
                         token0,
                         token1,
@@ -1741,7 +1745,7 @@
                       const token0 = await this.getERC20TokenDetails(context, ethers.utils.getAddress('0x' + event.topics[1].substring(26)));
                       const token1 = await this.getERC20TokenDetails(context, ethers.utils.getAddress('0x' + event.topics[2].substring(26)));
                       pools[event.blockNumber][poolAddress] = {
-                        name: "Uni3 " + token0.symbol + "/" + token1.symbol + " " + ethers.utils.formatUnits(event.topics[3], 4) + "%",
+                        name: "U3 " + token0.symbol + "/" + token1.symbol + " " + ethers.utils.formatUnits(event.topics[3], 4) + "%",
                         coin: context.address,
                         token0,
                         token1,
