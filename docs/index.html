@@ -281,13 +281,14 @@
                   <font size="-2"><pre>{{ data.item }}</pre></font>
                 </div>
                 -->
+                <font size="-2"><pre>{{ data.item }}</pre></font>
               </template>
               <template #cell(from)="data">
                 <div v-if="data.item.actions">
                   <div v-for="action of data.item.actions">
                     <font size="-1">
-                      <b-link v-if="action.from" :href="'https://etherscan.io/address/' + action.from" v-b-popover.hover.bottom="'View account in etherscan.io'" target="_blank">
-                        {{ ensOrAddress(action.from) }}
+                      <b-link v-if="action.fromIndex" :href="'https://etherscan.io/address/' + indexToAddress[action.fromIndex]" v-b-popover.hover.bottom="'View account in etherscan.io'" target="_blank">
+                        {{ ensOrAddress(indexToAddress[action.fromIndex]) }}
                       </b-link>
                     </font>
                     <br />
@@ -305,8 +306,8 @@
                 <div v-if="data.item.actions">
                   <div v-for="action of data.item.actions">
                     <font size="-1">
-                      <b-link v-if="action.to" :href="'https://etherscan.io/address/' + action.to" v-b-popover.hover.bottom="'View account in etherscan.io'" target="_blank">
-                        {{ ensOrAddress(action.to) }}
+                      <b-link v-if="action.toIndex" :href="'https://etherscan.io/address/' + indexToAddress[action.toIndex]" v-b-popover.hover.bottom="'View account in etherscan.io'" target="_blank">
+                        {{ ensOrAddress(indexToAddress[action.toIndex]) }}
                       </b-link>
                     </font>
                     <br />
@@ -645,6 +646,9 @@
             collection: null,
           },
 
+          addressToIndex: {},
+          indexToAddress: [],
+
           transfers: {},
           pools: {},
           trades: {},
@@ -968,12 +972,13 @@
             // }
             const results = [];
             // multi for (const [txHash, txInfo] of Object.entries(this.trades).slice(900, 950)) {
-            for (const [txHash, txInfo] of Object.entries(this.trades)) {
+            for (const [txHash, txInfo] of Object.entries(this.trades).slice(0, 100)) {
               const timestamp = this.blockTimestamps[txInfo.blockNumber] || null;
               let actions = null;
               const logList = [];
               for (const [logIndex, logInfo] of Object.entries(txInfo.logs)) {
-                logList.push({ logIndex, ...logInfo });
+                const [type, tokenIndex, fromIndex, toIndex, tokens ] = logInfo;
+                logList.push({ logIndex, type, tokenIndex, fromIndex, toIndex, tokens });
               }
               logList.sort((a, b) => {
                 return a.logIndex - b.logIndex;
@@ -984,7 +989,7 @@
               // const u2Logs = logList.filter(e => e.source == "u2");
               // const u3Logs = logList.filter(e => e.source == "u3");
               // console.log("logList: " + JSON.stringify(logList, null, 2));
-              // console.log("txLogs: " + JSON.stringify(txLogs, null, 2));
+              console.log("txLogs: " + JSON.stringify(txLogs, null, 2));
               // console.log("altTxLogs: " + JSON.stringify(altTxLogs, null, 2));
               // if (uLogs.length > 1) {
               //   console.log("uLogs: " + JSON.stringify(uLogs, null, 2));
@@ -1002,8 +1007,8 @@
                   actions.push({
                     logIndex: logData.logIndex,
                     type: "Transfer",
-                    from: logData.from,
-                    to: logData.to,
+                    fromIndex: logData.fromIndex,
+                    toIndex: logData.toIndex,
                     token: tokenSymbol,
                     decimals,
                     tokens: logData.tokens,
@@ -1470,11 +1475,11 @@
               if (coinInfo.sync && !this.sync.halt) {
                 const context = { provider, confirmedBlockNumber, db, address, symbol: coinInfo.symbol };
                 await this.syncCoinTransfers(context);
-                await this.syncUniswapV2Pools(context);
-                await this.syncUniswapV3Pools(context);
-                await this.syncUniswapV2Trades(context);
-                await this.syncUniswapV3Trades(context);
-                await this.syncUniswapAltTokenTransfers(context);
+                // await this.syncUniswapV2Pools(context);
+                // await this.syncUniswapV3Pools(context);
+                // await this.syncUniswapV2Trades(context);
+                // await this.syncUniswapV3Trades(context);
+                // await this.syncUniswapAltTokenTransfers(context);
               }
             }
             this.sync.section = null;
@@ -1553,6 +1558,22 @@
             let newTransfers = 0;
             const newBlocks = {};
             const newAccounts = {};
+
+            const tempAddressToIndex = this.addressToIndex;
+            const tempIndexToAddress = this.indexToAddress;
+
+            for (let [addressIndex, address] of [context.address, this.coinbase].entries()) {
+              if (!(address in tempAddressToIndex)) {
+                const index = tempIndexToAddress.length;
+                tempAddressToIndex[address] = index;
+                tempIndexToAddress.push(address);
+              }
+            }
+            const tokenIndex = tempAddressToIndex[context.address];
+            // console.log("tokenIndex: " + context.address + " => " + tokenIndex);
+            const coinbaseIndex = tempAddressToIndex[this.coinbase];
+            // console.log("coinbaseIndex: " + this.coinbase + " => " + coinbaseIndex);
+
             do {
               if (batchSize > 1000 && parseInt(fromBlock) + batchSize > context.confirmedBlockNumber) {
                 batchSize = parseInt((context.confirmedBlockNumber - fromBlock) * 0.75);
@@ -1587,6 +1608,23 @@
                     if (!(to in this.ensMap) && !(to in newAccounts)) {
                       newAccounts[to] = null;
                     }
+                    let fromIndex;
+                    if (!(from in tempAddressToIndex)) {
+                      fromIndex = tempIndexToAddress.length;
+                      tempAddressToIndex[from] = fromIndex;
+                      tempIndexToAddress.push(from);
+                    } else {
+                      fromIndex = tempAddressToIndex[from];
+                    }
+                    let toIndex;
+                    if (!(to in tempAddressToIndex)) {
+                      toIndex = tempIndexToAddress.length;
+                      tempAddressToIndex[to] = toIndex;
+                      tempIndexToAddress.push(to);
+                    } else {
+                      toIndex = tempAddressToIndex[to];
+                    }
+
                     if (!(event.blockNumber in transfers)) {
                       transfers[event.blockNumber] = {};
                     }
@@ -1597,7 +1635,7 @@
                       transfers[event.blockNumber][event.transactionIndex][event.transactionHash] = {};
                     }
                     if (!(event.logIndex in transfers[event.blockNumber][event.transactionIndex][event.transactionHash])) {
-                      transfers[event.blockNumber][event.transactionIndex][event.transactionHash][event.logIndex] = { from, to, tokens };
+                      transfers[event.blockNumber][event.transactionIndex][event.transactionHash][event.logIndex] = [fromIndex, toIndex, tokens ];
                       newTransfers++;
                     }
                   }
@@ -1612,6 +1650,17 @@
               }
               done = fromBlock >= context.confirmedBlockNumber;
             } while (!done && !this.sync.halt);
+            Vue.set(this, "addressToIndex", tempAddressToIndex);
+            Vue.set(this, "indexToAddress", tempIndexToAddress);
+            await context.db.cache.put({ objectName: "indexToAddress", object: tempIndexToAddress }).then (function() {
+            }).catch(function(error) {
+              console.log("error: " + error);
+            });
+            await context.db.cache.put({ objectName: "addressToIndex", object: tempAddressToIndex }).then (function() {
+            }).catch(function(error) {
+              console.log("error: " + error);
+            });
+
             newAccounts[this.coinbase] = null;
             await this.syncENSNames(context, Object.keys(newAccounts));
             await this.syncBlockTimestamps(context, Object.keys(newBlocks));
@@ -2132,6 +2181,7 @@
 
                 const transfersDataObject = await db.cache.where("objectName").equals(coinAddress + "_transfers").toArray();
                 if (transfersDataObject.length == 1) {
+                  const tokenIndex = this.addressToIndex[coinAddress];
                   for (const [blockNumber, txIndexes] of Object.entries(transfersDataObject[0].object)) {
                     for (const [txIndex, txHashes] of Object.entries(txIndexes)) {
                       for (const [txHash, logIndexes] of Object.entries(txHashes)) {
@@ -2139,7 +2189,7 @@
                           trades[txHash] = { blockNumber, txIndex, logs: {} };
                         }
                         for (const [logIndex, txData] of Object.entries(logIndexes)) {
-                          trades[txHash].logs[logIndex] = { type: "tx", token: coinAddress, ...txData };
+                          trades[txHash].logs[logIndex] = [ "tx", tokenIndex, ...txData ];
                         }
                       }
                     }
@@ -2708,6 +2758,19 @@
             if (ensMapDataItems.length == 1) {
               this.ensMap = ensMapDataItems[0].object;
             }
+            const indexToAddressDataItems = await db0.cache.where("objectName").equals('indexToAddress').toArray();
+            // console.log("indexToAddressDataItems.length: " + indexToAddressDataItems.length);
+            if (indexToAddressDataItems.length == 1) {
+              this.indexToAddress = indexToAddressDataItems[0].object;
+              // console.log("indexToAddress: " + JSON.stringify(this.indexToAddress));
+            }
+            const addressToIndexDataItems = await db0.cache.where("objectName").equals('addressToIndex').toArray();
+            // console.log("addressToIndexDataItems.length: " + addressToIndexDataItems.length);
+            if (addressToIndexDataItems.length == 1) {
+              this.addressToIndex = addressToIndexDataItems[0].object;
+              // console.log("addressToIndex: " + JSON.stringify(this.addressToIndex));
+            }
+
             db0.close();
             await this.loadCurrentData();
           })();
