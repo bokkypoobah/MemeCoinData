@@ -335,7 +335,7 @@
                     </div>
                     <div v-else>
                       <font size="-1">
-                        {{ formatERC20(action.tokens, action.decimals) }}
+                        {{ formatERC20(action[7], action[4]) }}
                       </font>
                       <br />
                     </div>
@@ -356,7 +356,7 @@
                     </div>
                     <div v-else>
                       <font size="-1">
-                        {{ action.token }}
+                        {{ action[3] }}
                       </font>
                       <br />
                     </div>
