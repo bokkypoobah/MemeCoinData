@@ -287,8 +287,8 @@
                 <div v-if="data.item.actions">
                   <div v-for="action of data.item.actions">
                     <font size="-1">
-                      <b-link v-if="action" :href="'https://etherscan.io/address/' + action[5]" v-b-popover.hover.bottom="'View account in etherscan.io'" target="_blank">
-                        {{ ensOrAddress(action[5]) }}
+                      <b-link v-if="action" :href="'https://etherscan.io/address/' + indexToAddress[action[2]]" v-b-popover.hover.bottom="'View account in etherscan.io'" target="_blank">
+                        {{ ensOrAddress(indexToAddress[action[2]]) }}
                       </b-link>
                     </font>
                     <br />
@@ -306,8 +306,8 @@
                 <div v-if="data.item.actions">
                   <div v-for="action of data.item.actions">
                     <font size="-1">
-                      <b-link v-if="action" :href="'https://etherscan.io/address/' + action[6]" v-b-popover.hover.bottom="'View account in etherscan.io'" target="_blank">
-                        {{ ensOrAddress(action[6]) }}
+                      <b-link v-if="action" :href="'https://etherscan.io/address/' + indexToAddress[action[3]]" v-b-popover.hover.bottom="'View account in etherscan.io'" target="_blank">
+                        {{ ensOrAddress(indexToAddress[action[3]]) }}
                       </b-link>
                     </font>
                     <br />
@@ -335,7 +335,7 @@
                     </div>
                     <div v-else>
                       <font size="-1">
-                        {{ formatERC20(action[7], action[4]) }}
+                        {{ formatERC20(action[4], action[7]) }}
                       </font>
                       <br />
                     </div>
@@ -356,7 +356,7 @@
                     </div>
                     <div v-else>
                       <font size="-1">
-                        {{ action[3] }}
+                        {{ action[6] }}
                       </font>
                       <br />
                     </div>
@@ -971,12 +971,15 @@
             //   collectionFilter = this.settings.filters.collections;
             // }
             const results = [];
-            console.log("this.trades: " + JSON.stringify(this.trades, null, 2));
+            // console.log("this.trades: " + JSON.stringify(this.trades, null, 2));
             // multi for (const [txHash, txInfo] of Object.entries(this.trades).slice(900, 950)) {
-            for (const [txHash, txInfo] of Object.entries(this.trades).slice(0, 100)) {
+            for (const [txHash, txInfo] of Object.entries(this.trades).slice(0, 20)) {
               const timestamp = this.blockTimestamps[txInfo.blockNumber] || null;
               let actions = null;
               const sortedLogs = [];
+
+              console.log(txHash + " => " + JSON.stringify(txInfo, null, 2));
+
               // console.log("txInfo.logs: " + JSON.stringify(txInfo.logs, null, 2));
               // for (const [logIndex, logInfo] of Object.entries(txInfo.logs)) {
               //   const [type, tokenIndex, fromIndex, toIndex, tokens ] = logInfo;
@@ -989,66 +992,43 @@
               // sortedLogs.sort((a, b) => {
               //   return a[0] - b[0];
               // });
-              console.log("sortedLogs: " + JSON.stringify(sortedLogs, null, 2));
+              // console.log("sortedLogs: " + JSON.stringify(sortedLogs, null, 2));
 
               const txLogs = sortedLogs.filter(e => e[1] == "tx");
-              const altTxLogs = sortedLogs.filter(e => e.type == "alttx");
-              const uLogs = sortedLogs.filter(e => e.source == "u2" || e.source == "u3");
+              console.log("txLogs: " + JSON.stringify(txLogs, null, 2));
+
+              // const altTxLogs = sortedLogs.filter(e => e.type == "alttx");
+              const uLogs = sortedLogs.filter(e => e[2] == "u2" || e[2] == "u3");
+              console.log("uLogs: " + JSON.stringify(uLogs, null, 2));
+
               // const u2Logs = sortedLogs.filter(e => e.source == "u2");
               // const u3Logs = sortedLogs.filter(e => e.source == "u3");
               // console.log("sortedLogs: " + JSON.stringify(sortedLogs, null, 2));
-              // console.log("txLogs: " + JSON.stringify(txLogs, null, 2));
               // console.log("altTxLogs: " + JSON.stringify(altTxLogs, null, 2));
-              // if (uLogs.length > 1) {
-              //   console.log("uLogs: " + JSON.stringify(uLogs, null, 2));
-              // }
               // console.log("u2Logs: " + JSON.stringify(u2Logs, null, 2));
               // console.log("u3Logs: " + JSON.stringify(u3Logs, null, 2));
 
               if (uLogs.length == 0 && txLogs.length > 0) {
-                // console.log("txHash: " + txHash);
-                console.log("txLogs: " + JSON.stringify(txLogs, null, 2));
                 actions = [];
-
                 for (const log of sortedLogs) {
-                  const tokenIndex = log[2];
-                  // console.log("tokenIndex: " + tokenIndex);
-                  const tokenAddress = this.indexToAddress[log[2]];
-                  // console.log("tokenAddress: " + tokenAddress);
+                  const tokenIndex = log[5];
+                  const tokenAddress = this.indexToAddress[tokenIndex];
                   const tokenSymbol = this.settings.coins[tokenAddress] && this.settings.coins[tokenAddress].symbol || null;
                   const decimals = this.settings.coins[tokenAddress] && this.settings.coins[tokenAddress].decimals || 18;
-                  actions.push([ log[0], log[1], tokenAddress, tokenSymbol, decimals, this.indexToAddress[3], this.indexToAddress[4], log[5] ]);
-                //   actions.push({
-                //     logIndex: logData.logIndex,
-                //     type: "Transfer",
-                //     fromIndex: logData.fromIndex,
-                //     toIndex: logData.toIndex,
-                //     token: tokenSymbol,
-                //     decimals,
-                //     tokens: logData.tokens,
-                //   });
+                  // actions.push([ log[0], log[1], tokenAddress, tokenSymbol, decimals, this.indexToAddress[log[3]], this.indexToAddress[log[4]], log[5] ]);
+                  actions.push([ ...log, tokenSymbol, decimals ]);
                 }
 
-                // console.log("actions: " + JSON.stringify(actions, null, 2));
-                //
-                // const txLog = txLogs[0];
-                // const tokenSymbol = this.settings.coins[txLog.token] && this.settings.coins[txLog.token].symbol || null;
-                // actions = [{
-                //   type: "tx",
-                //   from: txLog.from,
-                //   to: txLog.to,
-                //   token: tokenSymbol,
-                //   tokens: txLog.tokens,
-                // }];
-              } else if (uLogs.length > 0) {
-                // console.log("uLogs: " + JSON.stringify(uLogs, null, 2));
+              } else if (uLogs.length > 0 && false) {
+                console.log("uLogs: " + JSON.stringify(uLogs, null, 2));
                 actions = [];
-                for (const [logDataIndex, logData] of uLogs.entries()) {
+                for (const log of uLogs) {
+                // for (const [logDataIndex, logData] of uLogs.entries()) {
                   // console.log("uLog[" + logDataIndex + "]: " + JSON.stringify(logData, null, 2));
-                  const pool = this.pools[logData.poolAddress] || null;
+                  const pool = this.pools[log[1]] || null;
                   if (pool) {
-                    // console.log("pool: " + JSON.stringify(pool, null, 2));
-                    if (logData.type == "Mint") {
+                    console.log("pool: " + JSON.stringify(pool, null, 2));
+                    if (log[3] == "mint" && false) {
                       const token0 = {
                         token: pool.token0.symbol,
                         decimals: pool.token0.decimals,
@@ -1079,16 +1059,16 @@
                         to: logData.poolAddress,
                         rate,
                       });
-                    } else if (logData.type == "Swap") {
+                    } else if (log[3] == "swap") {
                       const token0 = {
                         token: pool.token0.symbol,
                         decimals: pool.token0.decimals,
-                        tokens: ethers.BigNumber.from(logData.amount0).mul(-1).toString(),
+                        tokens: ethers.BigNumber.from(log[6]).mul(-1).toString(),
                       };
                       const token1 = {
                         token: pool.token1.symbol,
                         decimals: pool.token1.decimals,
-                        tokens: ethers.BigNumber.from(logData.amount1).mul(-1).toString(),
+                        tokens: ethers.BigNumber.from(log[7]).mul(-1).toString(),
                       };
                       let tradeType;
                       let rate = null;
@@ -1112,15 +1092,16 @@
                           rate = ethers.BigNumber.from(token0.tokens).mul(TENMINUS18).div(ethers.BigNumber.from(token1.tokens)).toString();
                         }
                       }
-                      actions.push({
-                        type: tradeType,
-                        token0,
-                        token1,
-                        from: logData.recipient,
-                        to: logData.poolAddress,
-                        rate,
-                      });
-                    } else if (logData.type == "Burn") {
+                      // actions.push({
+                      //   type: tradeType,
+                      //   token0,
+                      //   token1,
+                      //   from: logData.recipient,
+                      //   to: logData.poolAddress,
+                      //   rate,
+                      // });
+                      actions.push([ log[0], log[1], log[2], log[3], this.indexToAddress[log[4]], this.indexToAddress[log[5]], log[6] ]);
+                    } else if (log[3] == "burn") {
                       // console.log("logData: " + JSON.stringify(logData, null, 2));
                       actions.push({
                         type: "Burn",
@@ -1131,7 +1112,7 @@
                         // from: logData.recipient,
                         // to: logData.poolAddress,
                       });
-                    } else if (logData.type == "Collect") {
+                    } else if (log[3] == "collect") {
                       const token0 = {
                         token: pool.token0.symbol,
                         decimals: pool.token0.decimals,
@@ -2338,7 +2319,7 @@
                           trades[txHash] = { blockNumber, txIndex, logs: [] };
                         }
                         for (const [logIndex, txData] of Object.entries(logIndexes)) {
-                          trades[txHash].logs.push([ logIndex, "tx", tokenIndex, ...txData ]);
+                          trades[txHash].logs.push([ logIndex, "tx", ...txData, tokenIndex ]);
                         }
                       }
                     }
