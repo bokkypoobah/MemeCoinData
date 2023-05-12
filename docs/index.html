@@ -324,20 +324,13 @@
               <template #cell(tokens)="data">
                 <div v-if="data.item.actions">
                   <div v-for="action of data.item.actions">
-                    <div v-if="action.token0">
+                    <font size="-1">
+                      {{ formatERC20(action[4], action[7]) }}
+                    </font>
+                    <div v-if="action.length > 8">
                       <font size="-1">
-                        {{ formatERC20(action.token0.tokens, action.token0.decimals) }}
+                        {{ formatERC20(action[8], action[11]) }}
                       </font>
-                      <br />
-                      <font size="-1">
-                        {{ formatERC20(action.token1.tokens, action.token1.decimals) }}
-                      </font>
-                    </div>
-                    <div v-else>
-                      <font size="-1">
-                        {{ formatERC20(action[4], action[7]) }}
-                      </font>
-                      <br />
                     </div>
                   </div>
                 </div>
@@ -345,20 +338,13 @@
               <template #cell(token)="data">
                 <div v-if="data.item.actions">
                   <div v-for="action of data.item.actions">
-                    <div v-if="action.token0">
+                    <font size="-1">
+                      {{ action[6] }}
+                    </font>
+                    <div v-if="action.length > 8">
                       <font size="-1">
-                        {{ action.token0.token }}
+                        {{ action[10] }}
                       </font>
-                      <br />
-                      <font size="-1">
-                        {{ action.token1.token }}
-                      </font>
-                    </div>
-                    <div v-else>
-                      <font size="-1">
-                        {{ action[6] }}
-                      </font>
-                      <br />
                     </div>
                   </div>
                 </div>
@@ -366,9 +352,9 @@
               <template #cell(rate)="data">
                 <div v-if="data.item.actions">
                   <div v-for="action of data.item.actions">
-                    <div v-if="action.rate">
+                    <div v-if="action.length > 8">
                       <font size="-1">
-                        {{ formatRate(action.rate, 18, 10) }}
+                        {{ formatRate(action[12], 18, 10) }}
                       </font>
                     </div>
                     <br />
@@ -973,7 +959,7 @@
             const results = [];
             // console.log("this.trades: " + JSON.stringify(this.trades, null, 2));
             // multi for (const [txHash, txInfo] of Object.entries(this.trades).slice(900, 950)) {
-            for (const [txHash, txInfo] of Object.entries(this.trades).slice(24, 26)) {
+            for (const [txHash, txInfo] of Object.entries(this.trades).slice(18, 26)) {
               const timestamp = this.blockTimestamps[txInfo.blockNumber] || null;
               let actions = null;
               const sortedLogs = [];
@@ -998,7 +984,7 @@
               console.log("txLogs: " + JSON.stringify(txLogs, null, 2));
 
               // const altTxLogs = sortedLogs.filter(e => e.type == "alttx");
-              const uLogs = sortedLogs.filter(e => e[2] == "u2" || e[2] == "u3");
+              const uLogs = sortedLogs.filter(e => e[1] == "swap");
               console.log("uLogs: " + JSON.stringify(uLogs, null, 2));
 
               // const u2Logs = sortedLogs.filter(e => e.source == "u2");
@@ -1019,13 +1005,14 @@
                   actions.push([ ...log, tokenSymbol, decimals ]);
                 }
 
-              } else if (uLogs.length > 0 && false) {
+              } else if (uLogs.length > 0) {
                 console.log("uLogs: " + JSON.stringify(uLogs, null, 2));
                 actions = [];
                 for (const log of uLogs) {
+                  console.log("log: " + JSON.stringify(log, null, 2));
                 // for (const [logDataIndex, logData] of uLogs.entries()) {
                   // console.log("uLog[" + logDataIndex + "]: " + JSON.stringify(logData, null, 2));
-                  const pool = this.pools[log[1]] || null;
+                  const pool = this.pools[this.indexToAddress[log[7]]] || null;
                   if (pool) {
                     console.log("pool: " + JSON.stringify(pool, null, 2));
                     if (log[3] == "mint" && false) {
@@ -1059,16 +1046,16 @@
                         to: logData.poolAddress,
                         rate,
                       });
-                    } else if (log[3] == "swap") {
+                    } else if (log[1] == "swap") {
                       const token0 = {
                         token: pool.token0.symbol,
                         decimals: pool.token0.decimals,
-                        tokens: ethers.BigNumber.from(log[6]).mul(-1).toString(),
+                        tokens: ethers.BigNumber.from(log[4]).mul(-1).toString(),
                       };
                       const token1 = {
                         token: pool.token1.symbol,
                         decimals: pool.token1.decimals,
-                        tokens: ethers.BigNumber.from(log[7]).mul(-1).toString(),
+                        tokens: ethers.BigNumber.from(log[5]).mul(-1).toString(),
                       };
                       let tradeType;
                       let rate = null;
@@ -1100,7 +1087,11 @@
                       //   to: logData.poolAddress,
                       //   rate,
                       // });
-                      actions.push([ log[0], log[1], log[2], log[3], this.indexToAddress[log[4]], this.indexToAddress[log[5]], log[6] ]);
+                      console.log("log: " + JSON.stringify(log));
+                      actions.push([ log[0], log[1], log[3], log[7],
+                        log[4], this.addressToIndex[pool.token0.address], pool.token0.symbol, pool.token0.decimals,
+                        log[5], this.addressToIndex[pool.token1.address], pool.token1.symbol, pool.token1.decimals,
+                        rate, log[6] ]);
                     } else if (log[3] == "burn") {
                       // console.log("logData: " + JSON.stringify(logData, null, 2));
                       actions.push({
@@ -2210,6 +2201,15 @@
               const dataObject = await context.db.cache.where("objectName").equals(poolInfo.poolAddress + "_" + poolInfo.altToken.address + "_transfers").toArray();
               const transfers = dataObject.length == 1 ? dataObject[0].object : {};
               const blockNumbers = Object.keys(transfers).sort((a, b) => { return b - a });
+
+              for (const address of [poolInfo.poolAddress, poolInfo.altToken.address]) {
+                if (!(address in tempAddressToIndex)) {
+                  const index = tempIndexToAddress.length;
+                  tempAddressToIndex[address] = index;
+                  tempIndexToAddress.push(address);
+                }
+              }
+
               for (const [topicsIndex, topics] of topicsList.entries()) {
                 this.sync.section = context.symbol + ' AltTkn ' + (part++);
                 let count = 0;
@@ -2330,6 +2330,7 @@
                 if (uniswapV2PoolsDataObject.length == 1) {
                   for (const [blockNumber, poolsInfo] of Object.entries(uniswapV2PoolsDataObject[0].object)) {
                     for (const [poolAddress, poolInfo] of Object.entries(poolsInfo)) {
+                      const poolIndex = this.addressToIndex[poolAddress];
                       const altToken = poolInfo.token0.address == coinAddress ? poolInfo.token1 : poolInfo.token0;
                       const tradesDataObject = await db.cache.where("objectName").equals(poolAddress + '_uniswapv2trades').toArray();
                       const tradesData = tradesDataObject.length == 1 ? tradesDataObject[0].object : {};
@@ -2352,12 +2353,12 @@
                               trades[txHash] = { blockNumber, txIndex, logs: [] };
                             }
                             for (const [logIndex, txData] of Object.entries(logIndexes)) {
-                              console.log("txData: " + txData);
-                              trades[txHash].logs.push([ logIndex, poolAddress, ...txData ]);
+                              trades[txHash].logs.push([ logIndex, ...txData, poolIndex ]);
                             }
                           }
                         }
                       }
+                      const altTokenIndex = this.addressToIndex[altToken.address];
                       const altTradesDataObject = await db.cache.where("objectName").equals(poolAddress + "_" + altToken.address + "_transfers").toArray();
                       const altTradesData = altTradesDataObject.length == 1 ? altTradesDataObject[0].object : {};
                       for (const [blockNumber, txIndexes] of Object.entries(altTradesData)) {
@@ -2367,7 +2368,7 @@
                               trades[txHash] = { blockNumber, txIndex, logs: [] };
                             }
                             for (const [logIndex, txData] of Object.entries(logIndexes)) {
-                              trades[txHash].logs.push([ logIndex, "alttx", altToken.address, ...txData ]);
+                              trades[txHash].logs.push([ logIndex, "alttx", ...txData, altTokenIndex ]);
                             }
                           }
                         }
@@ -2380,6 +2381,7 @@
                 if (uniswapV3PoolsDataObject.length == 1 && false) {
                   for (const [blockNumber, poolsInfo] of Object.entries(uniswapV3PoolsDataObject[0].object)) {
                     for (const [poolAddress, poolInfo] of Object.entries(poolsInfo)) {
+                      const poolIndex = this.addressToIndex[poolAddress];
                       const altToken = poolInfo.token0.address == coinAddress ? poolInfo.token1 : poolInfo.token0;
                       const tradesDataObject = await db.cache.where("objectName").equals(poolAddress + '_uniswapv3trades').toArray();
                       const tradesData = tradesDataObject.length == 1 ? tradesDataObject[0].object : {};
@@ -2404,11 +2406,12 @@
                               trades[txHash] = { blockNumber, txIndex, logs: [] };
                             }
                             for (const [logIndex, txData] of Object.entries(logIndexes)) {
-                              trades[txHash].logs.push([ logIndex, poolAddress, ...txData ]);
+                              trades[txHash].logs.push([ logIndex, ...txData, poolIndex ]);
                             }
                           }
                         }
                       }
+                      const altTokenIndex = this.addressToIndex[altToken.address];
                       const altTradesDataObject = await db.cache.where("objectName").equals(poolAddress + "_" + altToken.address + "_transfers").toArray();
                       const altTradesData = altTradesDataObject.length == 1 ? altTradesDataObject[0].object : {};
                       for (const [blockNumber, txIndexes] of Object.entries(altTradesData)) {
@@ -2418,7 +2421,7 @@
                               trades[txHash] = { blockNumber, txIndex, logs: [] };
                             }
                             for (const [logIndex, txData] of Object.entries(logIndexes)) {
-                              trades[txHash].logs.push([ logIndex, "alttx", altToken.address, ...txData ]);
+                              trades[txHash].logs.push([ logIndex, "alttx", ...txData, altTokenIndex ]);
                             }
                           }
                         }
