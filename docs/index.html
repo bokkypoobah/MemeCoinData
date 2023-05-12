@@ -973,12 +973,12 @@
             const results = [];
             // console.log("this.trades: " + JSON.stringify(this.trades, null, 2));
             // multi for (const [txHash, txInfo] of Object.entries(this.trades).slice(900, 950)) {
-            for (const [txHash, txInfo] of Object.entries(this.trades).slice(0, 20)) {
+            for (const [txHash, txInfo] of Object.entries(this.trades).slice(24, 26)) {
               const timestamp = this.blockTimestamps[txInfo.blockNumber] || null;
               let actions = null;
               const sortedLogs = [];
 
-              console.log(txHash + " => " + JSON.stringify(txInfo, null, 2));
+              // console.log(txHash + " => " + JSON.stringify(txInfo, null, 2));
 
               // console.log("txInfo.logs: " + JSON.stringify(txInfo.logs, null, 2));
               // for (const [logIndex, logInfo] of Object.entries(txInfo.logs)) {
@@ -1884,7 +1884,7 @@
                         //   amount0: amount0In.gt(0) ? amount0In.toString() : "-" + amount0Out.toString(),
                         //   amount1: amount1In.gt(0) ? amount1In.toString() : "-" + amount1Out.toString(),
                         // };
-                        record = [ "u2", "swap", senderIndex, recipientIndex, amount0In.gt(0) ? amount0In.toString() : "-" + amount0Out.toString(), amount1In.gt(0) ? amount1In.toString() : "-" + amount1Out.toString() ];
+                        record = [ "swap", senderIndex, recipientIndex, amount0In.gt(0) ? amount0In.toString() : "-" + amount0Out.toString(), amount1In.gt(0) ? amount1In.toString() : "-" + amount1Out.toString(), "u2" ];
 
                       } else if (log.name == "Mint") {
                         // event Mint(address indexed sender, uint amount0, uint amount1);
@@ -1902,7 +1902,7 @@
                         //   amount0: amount0.toString(),
                         //   amount1: amount1.toString(),
                         // };
-                        record = [ "u2", "mint", senderIndex, amount0.toString(), amount1.toString() ];
+                        record = [ "mint", senderIndex, amount0.toString(), amount1.toString(), "u2" ];
                       } else if (log.name == "Burn") {
                         // event Burn(address indexed sender, uint amount0, uint amount1, address indexed to);
                         const [sender, amount0, amount1, to] = log.args;
@@ -1923,7 +1923,7 @@
                         //   amount1: amount1.toString(),
                         //   to,
                         // };
-                        record = [ "u2", "burn", senderIndex, toIndex, amount0.toString(), amount1.toString() ];
+                        record = [ "burn", senderIndex, toIndex, amount0.toString(), amount1.toString(), "u2" ];
                       }
                       if (record) {
                         if (!(event.blockNumber in this.blockTimestamps) && !(event.blockNumber in newBlocks)) {
@@ -2050,7 +2050,7 @@
                         //   liquidity: liquidity.toString(),
                         //   tick: tick.toString(),
                         // };
-                        record = [ "u3", "swap", senderIndex, recipientIndex, amount0.toString(), amount1.toString() ];
+                        record = [ "swap", senderIndex, recipientIndex, amount0.toString(), amount1.toString(), "u3" ];
 
                       } else if (log.name == "Mint") {
                         // event Mint(address sender, address indexed owner, int24 indexed tickLower, int24 indexed tickUpper, uint128 amount, uint256 amount0, uint256 amount1);
@@ -2075,7 +2075,7 @@
                         //   amount0: amount0.toString(),
                         //   amount1: amount1.toString(),
                         // };
-                        record = [ "u3", "mint", senderIndex, ownerIndex, amount.toString(), amount0.toString(), amount1.toString() ];
+                        record = [ "mint", senderIndex, ownerIndex, amount.toString(), amount0.toString(), amount1.toString(), "u3" ];
                       } else if (log.name == "Collect") {
                         // event Collect(address indexed owner, address recipient, int24 indexed tickLower, int24 indexed tickUpper, uint128 amount0, uint128 amount1);
                         const [owner, recipient, tickLower, tickUpper, amount0, amount1] = log.args;
@@ -2098,7 +2098,7 @@
                         //   amount0: amount0.toString(),
                         //   amount1: amount1.toString(),
                         // };
-                        record = [ "u3", "collect", ownerIndex, recipientIndex, amount0.toString(), amount1.toString() ];
+                        record = [ "collect", ownerIndex, recipientIndex, amount0.toString(), amount1.toString(), "u3" ];
                       } else if (log.name == "Burn") {
                         // event Burn(address indexed owner, int24 indexed tickLower, int24 indexed tickUpper, uint128 amount, uint256 amount0, uint256 amount1);
                         const [owner, tickLower, tickUpper, amount, amount0, amount1] = log.args;
@@ -2118,7 +2118,7 @@
                         //   amount0: amount0.toString(),
                         //   amount1: amount1.toString(),
                         // };
-                        record = [ "u3", "burn", ownerIndex, amount.toString(), amount0.toString(), amount1.toString() ];
+                        record = [ "burn", ownerIndex, amount.toString(), amount0.toString(), amount1.toString(), "u3" ];
                       }
                       if (record) {
                         if (!(event.blockNumber in this.blockTimestamps) && !(event.blockNumber in newBlocks)) {
@@ -2352,6 +2352,7 @@
                               trades[txHash] = { blockNumber, txIndex, logs: [] };
                             }
                             for (const [logIndex, txData] of Object.entries(logIndexes)) {
+                              console.log("txData: " + txData);
                               trades[txHash].logs.push([ logIndex, poolAddress, ...txData ]);
                             }
                           }
