@@ -1474,12 +1474,12 @@
             for (const [address, coinInfo] of Object.entries(this.settings.coins)) {
               if (coinInfo.sync && !this.sync.halt) {
                 const context = { provider, confirmedBlockNumber, db, address, symbol: coinInfo.symbol };
-                await this.syncCoinTransfers(context);
+                // await this.syncCoinTransfers(context);
                 // await this.syncUniswapV2Pools(context);
                 // await this.syncUniswapV3Pools(context);
                 // await this.syncUniswapV2Trades(context);
                 // await this.syncUniswapV3Trades(context);
-                // await this.syncUniswapAltTokenTransfers(context);
+                await this.syncUniswapAltTokenTransfers(context);
               }
             }
             this.sync.section = null;
@@ -1561,8 +1561,7 @@
 
             const tempAddressToIndex = this.addressToIndex;
             const tempIndexToAddress = this.indexToAddress;
-
-            for (let [addressIndex, address] of [context.address, this.coinbase].entries()) {
+            for (const address of [context.address, this.coinbase]) {
               if (!(address in tempAddressToIndex)) {
                 const index = tempIndexToAddress.length;
                 tempAddressToIndex[address] = index;
@@ -1570,9 +1569,7 @@
               }
             }
             const tokenIndex = tempAddressToIndex[context.address];
-            // console.log("tokenIndex: " + context.address + " => " + tokenIndex);
             const coinbaseIndex = tempAddressToIndex[this.coinbase];
-            // console.log("coinbaseIndex: " + this.coinbase + " => " + coinbaseIndex);
 
             do {
               if (batchSize > 1000 && parseInt(fromBlock) + batchSize > context.confirmedBlockNumber) {
@@ -1608,22 +1605,16 @@
                     if (!(to in this.ensMap) && !(to in newAccounts)) {
                       newAccounts[to] = null;
                     }
-                    let fromIndex;
-                    if (!(from in tempAddressToIndex)) {
-                      fromIndex = tempIndexToAddress.length;
-                      tempAddressToIndex[from] = fromIndex;
-                      tempIndexToAddress.push(from);
-                    } else {
-                      fromIndex = tempAddressToIndex[from];
+
+                    for (const address of [from, to]) {
+                      if (!(address in tempAddressToIndex)) {
+                        const index = tempIndexToAddress.length;
+                        tempAddressToIndex[address] = index;
+                        tempIndexToAddress.push(address);
+                      }
                     }
-                    let toIndex;
-                    if (!(to in tempAddressToIndex)) {
-                      toIndex = tempIndexToAddress.length;
-                      tempAddressToIndex[to] = toIndex;
-                      tempIndexToAddress.push(to);
-                    } else {
-                      toIndex = tempAddressToIndex[to];
-                    }
+                    const fromIndex = tempAddressToIndex[from];
+                    const toIndex = tempAddressToIndex[to];
 
                     if (!(event.blockNumber in transfers)) {
                       transfers[event.blockNumber] = {};
@@ -1650,6 +1641,7 @@
               }
               done = fromBlock >= context.confirmedBlockNumber;
             } while (!done && !this.sync.halt);
+
             Vue.set(this, "addressToIndex", tempAddressToIndex);
             Vue.set(this, "indexToAddress", tempIndexToAddress);
             await context.db.cache.put({ objectName: "indexToAddress", object: tempIndexToAddress }).then (function() {
@@ -1840,6 +1832,10 @@
             // const topics = [ '0xd78ad95fa46c994b6551d0da85fc275fe613ce37657fb8d5e3d130840159d822', null, null ];
             const topics = [ null, null, null ];
             const newBlocks = {};
+
+            const tempAddressToIndex = this.addressToIndex;
+            const tempIndexToAddress = this.indexToAddress;
+
             for (const [poolAddress, poolInfo] of Object.entries(pools)) {
               const tradesDataObject = await context.db.cache.where("objectName").equals(poolAddress + '_uniswapv2trades').toArray();
               const trades = tradesDataObject.length == 1 ? tradesDataObject[0].object : {};
@@ -1851,6 +1847,15 @@
               let fromBlock = startBlock;
               let count = 0;
               let newTrades = 0;
+
+              if (!(poolAddress in tempAddressToIndex)) {
+                const index = tempIndexToAddress.length;
+                tempAddressToIndex[poolAddress] = index;
+                tempIndexToAddress.push(poolAddress);
+              }
+              const poolIndex = tempAddressToIndex[poolAddress];
+              console.log("poolIndex: " + poolIndex);
+
               do {
                 if (batchSize > 1000 && parseInt(fromBlock) + batchSize > context.confirmedBlockNumber) {
                   batchSize = parseInt((context.confirmedBlockNumber - fromBlock) * 0.75);
@@ -1866,31 +1871,52 @@
                       if (log.name == "Swap") {
                         // event Swap(address indexed sender, uint amount0In, uint amount1In, uint amount0Out, uint amount1Out, address indexed to);
                         const [sender, amount0In, amount1In, amount0Out, amount1Out, recipient] = log.args;
+                        for (const address of [sender, recipient]) {
+                          if (!(address in tempAddressToIndex)) {
+                            const index = tempIndexToAddress.length;
+                            tempAddressToIndex[address] = index;
+                            tempIndexToAddress.push(address);
+                          }
+                        }
+                        const senderIndex = tempAddressToIndex[sender];
+                        const recipientIndex = tempAddressToIndex[recipient];
                         record = {
                           source: "u2",
                           type: "Swap",
-                          sender,
-                          recipient,
+                          senderIndex,
+                          recipientIndex,
                           amount0: amount0In.gt(0) ? amount0In.toString() : "-" + amount0Out.toString(),
                           amount1: amount1In.gt(0) ? amount1In.toString() : "-" + amount1Out.toString(),
                         };
                       } else if (log.name == "Mint") {
                         // event Mint(address indexed sender, uint amount0, uint amount1);
                         const [sender, amount0, amount1] = log.args;
+                        if (!(sender in tempAddressToIndex)) {
+                          const index = tempIndexToAddress.length;
+                          tempAddressToIndex[sender] = index;
+                          tempIndexToAddress.push(sender);
+                        }
+                        const senderIndex = tempAddressToIndex[sender];
                         record = {
                           source: "u2",
                           type: "Mint",
-                          sender,
+                          senderIndex,
                           amount0: amount0.toString(),
                           amount1: amount1.toString(),
                         };
                       } else if (log.name == "Burn") {
                         // event Burn(address indexed sender, uint amount0, uint amount1, address indexed to);
                         const [sender, amount0, amount1, to] = log.args;
+                        if (!(sender in tempAddressToIndex)) {
+                          const index = tempIndexToAddress.length;
+                          tempAddressToIndex[sender] = index;
+                          tempIndexToAddress.push(sender);
+                        }
+                        const senderIndex = tempAddressToIndex[sender];
                         record = {
                           source: "u2",
                           type: "Burn",
-                          sender,
+                          senderIndex,
                           amount0: amount0.toString(),
                           amount1: amount1.toString(),
                           to,
@@ -1926,6 +1952,18 @@
                 }
                 done = fromBlock >= context.confirmedBlockNumber;
               } while (!done && !this.sync.halt);
+
+              Vue.set(this, "addressToIndex", tempAddressToIndex);
+              Vue.set(this, "indexToAddress", tempIndexToAddress);
+              await context.db.cache.put({ objectName: "indexToAddress", object: tempIndexToAddress }).then (function() {
+              }).catch(function(error) {
+                console.log("error: " + error);
+              });
+              await context.db.cache.put({ objectName: "addressToIndex", object: tempAddressToIndex }).then (function() {
+              }).catch(function(error) {
+                console.log("error: " + error);
+              });
+
               // console.log("trades: " + JSON.stringify(trades, null, 2));
               await this.syncBlockTimestamps(context, Object.keys(newBlocks));
               await context.db.cache.put({ objectName: poolAddress + '_uniswapv2trades', object: trades }).then (function() {
@@ -1951,6 +1989,10 @@
             // const topics = [ '0xc42079f94a6350d7e6235f29174924f928cc2ac818eb64fed8004e115fbcca67', null, null ];
             const topics = [ null, null, null ];
             const newBlocks = {};
+
+            const tempAddressToIndex = this.addressToIndex;
+            const tempIndexToAddress = this.indexToAddress;
+
             for (const [poolAddress, poolInfo] of Object.entries(pools)) {
               const tradesDataObject = await context.db.cache.where("objectName").equals(poolAddress + '_uniswapv3trades').toArray();
               const trades = tradesDataObject.length == 1 ? tradesDataObject[0].object : {};
@@ -1962,6 +2004,15 @@
               let fromBlock = startBlock;
               let count = 0;
               let newTrades = 0;
+
+              if (!(poolAddress in tempAddressToIndex)) {
+                const index = tempIndexToAddress.length;
+                tempAddressToIndex[poolAddress] = index;
+                tempIndexToAddress.push(poolAddress);
+              }
+              const poolIndex = tempAddressToIndex[poolAddress];
+              console.log("poolIndex: " + poolIndex);
+
               do {
                 if (batchSize > 1000 && parseInt(fromBlock) + batchSize > context.confirmedBlockNumber) {
                   batchSize = parseInt((context.confirmedBlockNumber - fromBlock) * 0.75);
@@ -1976,11 +2027,20 @@
                       let record = null;
                       if (log.name == "Swap") {
                         const [sender, recipient, amount0, amount1, sqrtPriceX96, liquidity, tick] = log.args;
+                        for (const address of [sender, recipient]) {
+                          if (!(address in tempAddressToIndex)) {
+                            const index = tempIndexToAddress.length;
+                            tempAddressToIndex[address] = index;
+                            tempIndexToAddress.push(address);
+                          }
+                        }
+                        const senderIndex = tempAddressToIndex[sender];
+                        const recipientIndex = tempAddressToIndex[recipient];
                         record = {
                           source: "u3",
                           type: "Swap",
-                          sender,
-                          recipient,
+                          senderIndex,
+                          recipientIndex,
                           amount0: amount0.toString(),
                           amount1: amount1.toString(),
                           sqrtPriceX96: sqrtPriceX96.toString(),
@@ -1991,11 +2051,20 @@
                       } else if (log.name == "Mint") {
                         // event Mint(address sender, address indexed owner, int24 indexed tickLower, int24 indexed tickUpper, uint128 amount, uint256 amount0, uint256 amount1);
                         const [sender, owner, tickLower, tickUpper, amount, amount0, amount1] = log.args;
+                        for (const address of [sender, owner]) {
+                          if (!(address in tempAddressToIndex)) {
+                            const index = tempIndexToAddress.length;
+                            tempAddressToIndex[address] = index;
+                            tempIndexToAddress.push(address);
+                          }
+                        }
+                        const senderIndex = tempAddressToIndex[sender];
+                        const ownerIndex = tempAddressToIndex[owner];
                         record = {
                           source: "u3",
                           type: "Mint",
-                          sender,
-                          owner,
+                          senderIndex,
+                          ownerIndex,
                           tickLower: tickLower.toString(),
                           tickUpper: tickUpper.toString(),
                           amount: amount.toString(),
@@ -2005,11 +2074,20 @@
                       } else if (log.name == "Collect") {
                         // event Collect(address indexed owner, address recipient, int24 indexed tickLower, int24 indexed tickUpper, uint128 amount0, uint128 amount1);
                         const [owner, recipient, tickLower, tickUpper, amount0, amount1] = log.args;
+                        for (const address of [owner, recipient]) {
+                          if (!(address in tempAddressToIndex)) {
+                            const index = tempIndexToAddress.length;
+                            tempAddressToIndex[address] = index;
+                            tempIndexToAddress.push(address);
+                          }
+                        }
+                        const ownerIndex = tempAddressToIndex[owner];
+                        const recipientIndex = tempAddressToIndex[recipient];
                         record = {
                           source: "u3",
                           type: "Collect",
-                          owner,
-                          recipient,
+                          ownerIndex,
+                          recipientIndex,
                           tickLower: tickLower.toString(),
                           tickUpper: tickUpper.toString(),
                           amount0: amount0.toString(),
@@ -2018,10 +2096,16 @@
                       } else if (log.name == "Burn") {
                         // event Burn(address indexed owner, int24 indexed tickLower, int24 indexed tickUpper, uint128 amount, uint256 amount0, uint256 amount1);
                         const [owner, tickLower, tickUpper, amount, amount0, amount1] = log.args;
+                        if (!(owner in tempAddressToIndex)) {
+                          const index = tempIndexToAddress.length;
+                          tempAddressToIndex[owner] = index;
+                          tempIndexToAddress.push(owner);
+                        }
+                        const ownerIndex = tempAddressToIndex[owner];
                         record = {
                           source: "u3",
                           type: "Burn",
-                          owner,
+                          ownerIndex,
                           tickLower: tickLower.toString(),
                           tickUpper: tickUpper.toString(),
                           amount: amount.toString(),
@@ -2059,6 +2143,18 @@
                 }
                 done = fromBlock >= context.confirmedBlockNumber;
               } while (!done && !this.sync.halt);
+
+              Vue.set(this, "addressToIndex", tempAddressToIndex);
+              Vue.set(this, "indexToAddress", tempIndexToAddress);
+              await context.db.cache.put({ objectName: "indexToAddress", object: tempIndexToAddress }).then (function() {
+              }).catch(function(error) {
+                console.log("error: " + error);
+              });
+              await context.db.cache.put({ objectName: "addressToIndex", object: tempAddressToIndex }).then (function() {
+              }).catch(function(error) {
+                console.log("error: " + error);
+              });
+
               // console.log("trades: " + JSON.stringify(trades, null, 2));
               await this.syncBlockTimestamps(context, Object.keys(newBlocks));
               await context.db.cache.put({ objectName: poolAddress + '_uniswapv3trades', object: trades }).then (function() {
@@ -2093,6 +2189,10 @@
                 }
               }
             }
+
+            const tempAddressToIndex = this.addressToIndex;
+            const tempIndexToAddress = this.indexToAddress;
+
             let part = 0;
             for (const poolInfo of poolsToProcess) {
               const poolAddressAs32Bytes = '0x000000000000000000000000' + poolInfo.poolAddress.substring(2, 42).toLowerCase();
@@ -2136,6 +2236,17 @@
                           to = ethers.utils.getAddress('0x' + event.data.substring(90, 130));
                           tokens = ethers.BigNumber.from('0x' + event.data.substring(130, 193)).toString();
                         }
+
+                        for (const address of [from, to]) {
+                          if (!(address in tempAddressToIndex)) {
+                            const index = tempIndexToAddress.length;
+                            tempAddressToIndex[address] = index;
+                            tempIndexToAddress.push(address);
+                          }
+                        }
+                        const fromIndex = tempAddressToIndex[from];
+                        const toIndex = tempAddressToIndex[to];
+
                         if (!(event.blockNumber in transfers)) {
                           transfers[event.blockNumber] = {};
                         }
@@ -2146,7 +2257,7 @@
                           transfers[event.blockNumber][event.transactionIndex][event.transactionHash] = {};
                         }
                         if (!(event.logIndex in transfers[event.blockNumber][event.transactionIndex][event.transactionHash])) {
-                          transfers[event.blockNumber][event.transactionIndex][event.transactionHash][event.logIndex] = { from, to, tokens };
+                          transfers[event.blockNumber][event.transactionIndex][event.transactionHash][event.logIndex] = { fromIndex, toIndex, tokens };
                           newTransfers++;
                         }
                       }
@@ -2167,6 +2278,18 @@
                 console.log("error: " + error);
               });
             }
+
+            Vue.set(this, "addressToIndex", tempAddressToIndex);
+            Vue.set(this, "indexToAddress", tempIndexToAddress);
+            await context.db.cache.put({ objectName: "indexToAddress", object: tempIndexToAddress }).then (function() {
+            }).catch(function(error) {
+              console.log("error: " + error);
+            });
+            await context.db.cache.put({ objectName: "addressToIndex", object: tempAddressToIndex }).then (function() {
+            }).catch(function(error) {
+              console.log("error: " + error);
+            });
+
           },
           async loadCurrentData() {
             const db = new Dexie(this.db.name);
