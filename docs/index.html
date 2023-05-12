@@ -287,8 +287,8 @@
                 <div v-if="data.item.actions">
                   <div v-for="action of data.item.actions">
                     <font size="-1">
-                      <b-link v-if="action.fromIndex" :href="'https://etherscan.io/address/' + indexToAddress[action.fromIndex]" v-b-popover.hover.bottom="'View account in etherscan.io'" target="_blank">
-                        {{ ensOrAddress(indexToAddress[action.fromIndex]) }}
+                      <b-link v-if="action" :href="'https://etherscan.io/address/' + action[5]" v-b-popover.hover.bottom="'View account in etherscan.io'" target="_blank">
+                        {{ ensOrAddress(action[5]) }}
                       </b-link>
                     </font>
                     <br />
@@ -306,8 +306,8 @@
                 <div v-if="data.item.actions">
                   <div v-for="action of data.item.actions">
                     <font size="-1">
-                      <b-link v-if="action.toIndex" :href="'https://etherscan.io/address/' + indexToAddress[action.toIndex]" v-b-popover.hover.bottom="'View account in etherscan.io'" target="_blank">
-                        {{ ensOrAddress(indexToAddress[action.toIndex]) }}
+                      <b-link v-if="action" :href="'https://etherscan.io/address/' + action[6]" v-b-popover.hover.bottom="'View account in etherscan.io'" target="_blank">
+                        {{ ensOrAddress(action[6]) }}
                       </b-link>
                     </font>
                     <br />
@@ -1012,9 +1012,9 @@
 
                 for (const log of sortedLogs) {
                   const tokenIndex = log[2];
-                  console.log("tokenIndex: " + tokenIndex);
+                  // console.log("tokenIndex: " + tokenIndex);
                   const tokenAddress = this.indexToAddress[log[2]];
-                  console.log("tokenAddress: " + tokenAddress);
+                  // console.log("tokenAddress: " + tokenAddress);
                   const tokenSymbol = this.settings.coins[tokenAddress] && this.settings.coins[tokenAddress].symbol || null;
                   const decimals = this.settings.coins[tokenAddress] && this.settings.coins[tokenAddress].decimals || 18;
                   actions.push([ log[0], log[1], tokenAddress, tokenSymbol, decimals, this.indexToAddress[3], this.indexToAddress[4], log[5] ]);
