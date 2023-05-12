@@ -976,22 +976,28 @@
             for (const [txHash, txInfo] of Object.entries(this.trades).slice(0, 100)) {
               const timestamp = this.blockTimestamps[txInfo.blockNumber] || null;
               let actions = null;
-              const logList = [];
-              console.log("txInfo.logs: " + JSON.stringify(txInfo.logs, null, 2));
+              const sortedLogs = [];
+              // console.log("txInfo.logs: " + JSON.stringify(txInfo.logs, null, 2));
               // for (const [logIndex, logInfo] of Object.entries(txInfo.logs)) {
               //   const [type, tokenIndex, fromIndex, toIndex, tokens ] = logInfo;
-              //   logList.push({ logIndex, type, tokenIndex, fromIndex, toIndex, tokens });
+              //   sortedLogs.push({ logIndex, type, tokenIndex, fromIndex, toIndex, tokens });
               // }
-              logList.sort((a, b) => {
-                return a.logIndex - b.logIndex;
-              });
-              const txLogs = logList.filter(e => e.type == "tx");
-              const altTxLogs = logList.filter(e => e.type == "alttx");
-              const uLogs = logList.filter(e => e.source == "u2" || e.source == "u3");
-              // const u2Logs = logList.filter(e => e.source == "u2");
-              // const u3Logs = logList.filter(e => e.source == "u3");
-              // console.log("logList: " + JSON.stringify(logList, null, 2));
-              console.log("txLogs: " + JSON.stringify(txLogs, null, 2));
+
+              for (const row of txInfo.logs) {
+                sortedLogs.push(row);
+              }
+              // sortedLogs.sort((a, b) => {
+              //   return a[0] - b[0];
+              // });
+              console.log("sortedLogs: " + JSON.stringify(sortedLogs, null, 2));
+
+              const txLogs = sortedLogs.filter(e => e[1] == "tx");
+              const altTxLogs = sortedLogs.filter(e => e.type == "alttx");
+              const uLogs = sortedLogs.filter(e => e.source == "u2" || e.source == "u3");
+              // const u2Logs = sortedLogs.filter(e => e.source == "u2");
+              // const u3Logs = sortedLogs.filter(e => e.source == "u3");
+              // console.log("sortedLogs: " + JSON.stringify(sortedLogs, null, 2));
+              // console.log("txLogs: " + JSON.stringify(txLogs, null, 2));
               // console.log("altTxLogs: " + JSON.stringify(altTxLogs, null, 2));
               // if (uLogs.length > 1) {
               //   console.log("uLogs: " + JSON.stringify(uLogs, null, 2));
@@ -1001,21 +1007,28 @@
 
               if (uLogs.length == 0 && txLogs.length > 0) {
                 // console.log("txHash: " + txHash);
-                // console.log("txLogs: " + JSON.stringify(txLogs, null, 2));
+                console.log("txLogs: " + JSON.stringify(txLogs, null, 2));
                 actions = [];
-                for (const [logDataIndex, logData] of txLogs.entries()) {
-                  const tokenSymbol = this.settings.coins[logData.token] && this.settings.coins[logData.token].symbol || null;
-                  const decimals = this.settings.coins[logData.token] && this.settings.coins[logData.token].decimals || 18;
-                  actions.push({
-                    logIndex: logData.logIndex,
-                    type: "Transfer",
-                    fromIndex: logData.fromIndex,
-                    toIndex: logData.toIndex,
-                    token: tokenSymbol,
-                    decimals,
-                    tokens: logData.tokens,
-                  });
+
+                for (const log of sortedLogs) {
+                  const tokenIndex = log[2];
+                  console.log("tokenIndex: " + tokenIndex);
+                  const tokenAddress = this.indexToAddress[log[2]];
+                  console.log("tokenAddress: " + tokenAddress);
+                  const tokenSymbol = this.settings.coins[tokenAddress] && this.settings.coins[tokenAddress].symbol || null;
+                  const decimals = this.settings.coins[tokenAddress] && this.settings.coins[tokenAddress].decimals || 18;
+                  actions.push([ log[0], log[1], tokenAddress, tokenSymbol, decimals, this.indexToAddress[3], this.indexToAddress[4], log[5] ]);
+                //   actions.push({
+                //     logIndex: logData.logIndex,
+                //     type: "Transfer",
+                //     fromIndex: logData.fromIndex,
+                //     toIndex: logData.toIndex,
+                //     token: tokenSymbol,
+                //     decimals,
+                //     tokens: logData.tokens,
+                //   });
                 }
+
                 // console.log("actions: " + JSON.stringify(actions, null, 2));
                 //
                 // const txLog = txLogs[0];
@@ -2322,10 +2335,10 @@
                     for (const [txIndex, txHashes] of Object.entries(txIndexes)) {
                       for (const [txHash, logIndexes] of Object.entries(txHashes)) {
                         if (!trades[txHash]) {
-                          trades[txHash] = { blockNumber, txIndex, logs: {} };
+                          trades[txHash] = { blockNumber, txIndex, logs: [] };
                         }
                         for (const [logIndex, txData] of Object.entries(logIndexes)) {
-                          trades[txHash].logs[logIndex] = [ "tx", tokenIndex, ...txData ];
+                          trades[txHash].logs.push([ logIndex, "tx", tokenIndex, ...txData ]);
                         }
                       }
                     }
@@ -2355,10 +2368,10 @@
                         for (const [txIndex, txHashes] of Object.entries(txIndexes)) {
                           for (const [txHash, logIndexes] of Object.entries(txHashes)) {
                             if (!trades[txHash]) {
-                              trades[txHash] = { blockNumber, txIndex, logs: {} };
+                              trades[txHash] = { blockNumber, txIndex, logs: [] };
                             }
                             for (const [logIndex, txData] of Object.entries(logIndexes)) {
-                              trades[txHash].logs[logIndex] = { type: "u2", poolAddress, ...txData };
+                              trades[txHash].logs.push([ logIndex, poolAddress, ...txData ]);
                             }
                           }
                         }
@@ -2369,10 +2382,10 @@
                         for (const [txIndex, txHashes] of Object.entries(txIndexes)) {
                           for (const [txHash, logIndexes] of Object.entries(txHashes)) {
                             if (!trades[txHash]) {
-                              trades[txHash] = { blockNumber, txIndex, logs: {} };
+                              trades[txHash] = { blockNumber, txIndex, logs: [] };
                             }
                             for (const [logIndex, txData] of Object.entries(logIndexes)) {
-                              trades[txHash].logs[logIndex] = { type: "alttx", token: altToken.address, ...txData };
+                              trades[txHash].logs.push([ logIndex, "alttx", altToken.address, ...txData ]);
                             }
                           }
                         }
@@ -2406,10 +2419,10 @@
                         for (const [txIndex, txHashes] of Object.entries(txIndexes)) {
                           for (const [txHash, logIndexes] of Object.entries(txHashes)) {
                             if (!trades[txHash]) {
-                              trades[txHash] = { blockNumber, txIndex, logs: {} };
+                              trades[txHash] = { blockNumber, txIndex, logs: [] };
                             }
                             for (const [logIndex, txData] of Object.entries(logIndexes)) {
-                              trades[txHash].logs[logIndex] = { type: "u3", poolAddress, ...txData };
+                              trades[txHash].logs.push([ logIndex, poolAddress, ...txData ]);
                             }
                           }
                         }
@@ -2420,10 +2433,10 @@
                         for (const [txIndex, txHashes] of Object.entries(txIndexes)) {
                           for (const [txHash, logIndexes] of Object.entries(txHashes)) {
                             if (!trades[txHash]) {
-                              trades[txHash] = { blockNumber, txIndex, logs: {} };
+                              trades[txHash] = { blockNumber, txIndex, logs: [] };
                             }
                             for (const [logIndex, txData] of Object.entries(logIndexes)) {
-                              trades[txHash].logs[logIndex] = { type: "alttx", token: altToken.address, ...txData };
+                              trades[txHash].logs.push([ logIndex, "alttx", altToken.address, ...txData ]);
                             }
                           }
                         }
