@@ -740,7 +740,7 @@
             // { key: 'include', label: 'Include', sortable: true, thStyle: 'width: 10%;', tdClass: 'text-truncate' },
           ],
           db: {
-            name: "memecoindata089e",
+            name: "memecoindata089f",
             version: 1,
             schemaDefinition: {
               cache: '&objectName',
@@ -971,15 +971,17 @@
             //   collectionFilter = this.settings.filters.collections;
             // }
             const results = [];
+            console.log("this.trades: " + JSON.stringify(this.trades, null, 2));
             // multi for (const [txHash, txInfo] of Object.entries(this.trades).slice(900, 950)) {
             for (const [txHash, txInfo] of Object.entries(this.trades).slice(0, 100)) {
               const timestamp = this.blockTimestamps[txInfo.blockNumber] || null;
               let actions = null;
               const logList = [];
-              for (const [logIndex, logInfo] of Object.entries(txInfo.logs)) {
-                const [type, tokenIndex, fromIndex, toIndex, tokens ] = logInfo;
-                logList.push({ logIndex, type, tokenIndex, fromIndex, toIndex, tokens });
-              }
+              console.log("txInfo.logs: " + JSON.stringify(txInfo.logs, null, 2));
+              // for (const [logIndex, logInfo] of Object.entries(txInfo.logs)) {
+              //   const [type, tokenIndex, fromIndex, toIndex, tokens ] = logInfo;
+              //   logList.push({ logIndex, type, tokenIndex, fromIndex, toIndex, tokens });
+              // }
               logList.sort((a, b) => {
                 return a.logIndex - b.logIndex;
               });
@@ -1474,11 +1476,11 @@
             for (const [address, coinInfo] of Object.entries(this.settings.coins)) {
               if (coinInfo.sync && !this.sync.halt) {
                 const context = { provider, confirmedBlockNumber, db, address, symbol: coinInfo.symbol };
-                // await this.syncCoinTransfers(context);
-                // await this.syncUniswapV2Pools(context);
-                // await this.syncUniswapV3Pools(context);
-                // await this.syncUniswapV2Trades(context);
-                // await this.syncUniswapV3Trades(context);
+                await this.syncCoinTransfers(context);
+                await this.syncUniswapV2Pools(context);
+                await this.syncUniswapV3Pools(context);
+                await this.syncUniswapV2Trades(context);
+                await this.syncUniswapV3Trades(context);
                 await this.syncUniswapAltTokenTransfers(context);
               }
             }
@@ -1626,7 +1628,7 @@
                       transfers[event.blockNumber][event.transactionIndex][event.transactionHash] = {};
                     }
                     if (!(event.logIndex in transfers[event.blockNumber][event.transactionIndex][event.transactionHash])) {
-                      transfers[event.blockNumber][event.transactionIndex][event.transactionHash][event.logIndex] = [fromIndex, toIndex, tokens ];
+                      transfers[event.blockNumber][event.transactionIndex][event.transactionHash][event.logIndex] = [ fromIndex, toIndex, tokens ];
                       newTransfers++;
                     }
                   }
@@ -2257,7 +2259,7 @@
                           transfers[event.blockNumber][event.transactionIndex][event.transactionHash] = {};
                         }
                         if (!(event.logIndex in transfers[event.blockNumber][event.transactionIndex][event.transactionHash])) {
-                          transfers[event.blockNumber][event.transactionIndex][event.transactionHash][event.logIndex] = { fromIndex, toIndex, tokens };
+                          transfers[event.blockNumber][event.transactionIndex][event.transactionHash][event.logIndex] = [ fromIndex, toIndex, tokens ];
                           newTransfers++;
                         }
                       }
@@ -2369,7 +2371,7 @@
                 }
 
                 const uniswapV3PoolsDataObject = await db.cache.where("objectName").equals(coinAddress + "_uniswapv3pools").toArray();
-                if (uniswapV3PoolsDataObject.length == 1) {
+                if (uniswapV3PoolsDataObject.length == 1 && false) {
                   for (const [blockNumber, poolsInfo] of Object.entries(uniswapV3PoolsDataObject[0].object)) {
                     for (const [poolAddress, poolInfo] of Object.entries(poolsInfo)) {
                       const altToken = poolInfo.token0.address == coinAddress ? poolInfo.token1 : poolInfo.token0;
