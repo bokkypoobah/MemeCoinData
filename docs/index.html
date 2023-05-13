@@ -280,8 +280,8 @@
                 <div v-else>
                   <font size="-2"><pre>{{ data.item }}</pre></font>
                 </div>
-                -->
                 <font size="-2"><pre>{{ data.item }}</pre></font>
+                -->
               </template>
               <template #cell(from)="data">
                 <div v-if="data.item.actions">
@@ -940,6 +940,7 @@
             return this.filteredSortedAccounts.slice((this.settings.accountsTable.currentPage - 1) * this.settings.accountsTable.pageSize, this.settings.accountsTable.currentPage * this.settings.accountsTable.pageSize);
           },
           filteredTransfers() {
+            console.log(moment().format("HH:mm:ss") + " filteredTransfers");
             // console.log("pools: " + JSON.stringify(this.pools. null, 2));
             // console.log("trades: " + JSON.stringify(this.trades, null, 2));
             // const tokenFilterRegex = this.settings.tokensTable.tokenFilter && this.settings.tokensTable.tokenFilter.length > 0 ? new RegExp(this.settings.tokensTable.tokenFilter, 'i') : null;
@@ -959,7 +960,7 @@
             const results = [];
             // console.log("this.trades: " + JSON.stringify(this.trades, null, 2));
             // multi for (const [txHash, txInfo] of Object.entries(this.trades).slice(900, 950)) {
-            for (const [txHash, txInfo] of Object.entries(this.trades).slice(200, 300)) {
+            for (const [txHash, txInfo] of Object.entries(this.trades)) {
               const timestamp = this.blockTimestamps[txInfo.blockNumber] || null;
               let actions = null;
               const sortedLogs = [];
@@ -985,7 +986,7 @@
 
               // const altTxLogs = sortedLogs.filter(e => e.type == "alttx");
               const uLogs = sortedLogs.filter(e => e[1] == "swap" || e[1] == "mint" || e[1] == "burn" || e[1] == "collect");
-              console.log("uLogs: " + JSON.stringify(uLogs));
+              // console.log("uLogs: " + JSON.stringify(uLogs));
 
               // const u2Logs = sortedLogs.filter(e => e.source == "u2");
               // const u3Logs = sortedLogs.filter(e => e.source == "u3");
@@ -1006,12 +1007,12 @@
                 }
 
               } else if (uLogs.length > 0) {
-                console.log("uLogs: " + JSON.stringify(uLogs));
+                // console.log("uLogs: " + JSON.stringify(uLogs));
                 actions = [];
                 for (const log of uLogs) {
-                  console.log("log: " + JSON.stringify(log));
+                  // console.log("log: " + JSON.stringify(log));
                   if (log[1] == "mint") {
-                    const pool = this.pools[this.indexToAddress[log[6]]] || null;
+                    const pool = this.pools[this.indexToAddress[log[log.length - 1]]] || null;
                     // console.log("pool: " + JSON.stringify(pool, null, 2));
                     const token0 = {
                       token: pool.token0.symbol,
@@ -1194,6 +1195,7 @@
             // //     });
             // //   }
             // }
+            console.log(moment().format("HH:mm:ss") + " filteredTransfers END");
             return results;
           },
           filteredSortedTransfers() {
@@ -2052,7 +2054,7 @@
                         //   amount0: amount0.toString(),
                         //   amount1: amount1.toString(),
                         // };
-                        record = [ "mint", senderIndex, ownerIndex, amount.toString(), amount0.toString(), amount1.toString(), "u3" ];
+                        record = [ "mint", senderIndex, amount0.toString(), amount1.toString(), "u3", ownerIndex, amount.toString() ];
                       } else if (log.name == "Collect") {
                         // event Collect(address indexed owner, address recipient, int24 indexed tickLower, int24 indexed tickUpper, uint128 amount0, uint128 amount1);
                         const [owner, recipient, tickLower, tickUpper, amount0, amount1] = log.args;
@@ -2293,7 +2295,7 @@
             let count = 0;
             for (const [coinAddress, coinInfo] of Object.entries(this.settings.coins)) {
               if (coinInfo.include) {
-                console.log("loadCurrentData: " + coinAddress + " " + coinInfo.symbol + " " + coinInfo.name);
+                console.log(moment().format("HH:mm:ss") + " loadCurrentData: " + coinAddress + " " + coinInfo.symbol + " " + coinInfo.name);
 
                 const transfersDataObject = await db.cache.where("objectName").equals(coinAddress + "_transfers").toArray();
                 if (transfersDataObject.length == 1) {
@@ -2418,6 +2420,7 @@
               }
             }
             db.close();
+            console.log(moment().format("HH:mm:ss") + " loadCurrentData END");
             // console.log("Loaded " + count + " events");
             // console.log("Loaded " + Object.keys(pools).length + " Uniswap V2 & V3 pools");
             // console.log("loadCurrentData - pools: " + JSON.stringify(pools, null, 2));
