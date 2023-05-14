@@ -246,18 +246,18 @@
               </template>
               <template #cell(timestamp)="data">
                 <font size="-1">
-                  <b-link :href="'https://etherscan.io/tx/' + data.item.txHash" v-b-popover.hover.bottom="'View tx in etherscan.io'" target="_blank">
-                    {{ formatTimestamp(data.item.timestamp) }}
+                  <b-link :href="'https://etherscan.io/tx/' + data.item[0]" v-b-popover.hover.bottom="'View tx in etherscan.io'" target="_blank">
+                    {{ formatTimestamp(data.item[2]) }}
                   </b-link>
                 </font>
                 <br />
                 <font size="-2">
-                  {{ data.item.blockNumber + ':' + data.item.txIndex + ':' + data.item.txHash }}
+                  {{ data.item[1] + ':' + data.item[3] + ':' + data.item[0] }}
                 </font>
               </template>
               <template #cell(info)="data">
-                <div v-if="data.item.actions">
-                  <div v-for="action of data.item.actions">
+                <div v-if="data.item[4]">
+                  <div v-for="action of data.item[4]">
                     <font size="-1"><pre>{{ action[1] }}</pre></font>
                     <br />
                   </div>
@@ -284,8 +284,8 @@
                 -->
               </template>
               <template #cell(from)="data">
-                <div v-if="data.item.actions">
-                  <div v-for="action of data.item.actions">
+                <div v-if="data.item[4]">
+                  <div v-for="action of data.item[4]">
                     <font size="-1">
                       <b-link v-if="action" :href="'https://etherscan.io/address/' + indexToAddress[action[2]]" v-b-popover.hover.bottom="'View account in etherscan.io'" target="_blank">
                         {{ ensOrAddress(indexToAddress[action[2]]) }}
@@ -303,8 +303,8 @@
                 -->
               </template>
               <template #cell(to)="data">
-                <div v-if="data.item.actions">
-                  <div v-for="action of data.item.actions">
+                <div v-if="data.item[4]">
+                  <div v-for="action of data.item[4]">
                     <font size="-1">
                       <b-link v-if="action" :href="'https://etherscan.io/address/' + indexToAddress[action[3]]" v-b-popover.hover.bottom="'View account in etherscan.io'" target="_blank">
                         {{ ensOrAddress(indexToAddress[action[3]]) }}
@@ -322,10 +322,10 @@
                 -->
               </template>
               <template #cell(tokens)="data">
-                <div v-if="data.item.actions">
-                  <div v-for="action of data.item.actions">
+                <div v-if="data.item[4]">
+                  <div v-for="action of data.item[4]">
                     <font size="-1">
-                      {{ formatERC20(action[4], action[7]) }}
+                      {{ formatERC20(action[4], indexToDecimals[action[5]]) }}
                     </font>
                     <div v-if="action.length > 8">
                       <font size="-1">
@@ -336,10 +336,10 @@
                 </div>
               </template>
               <template #cell(token)="data">
-                <div v-if="data.item.actions">
-                  <div v-for="action of data.item.actions">
+                <div v-if="data.item[4]">
+                  <div v-for="action of data.item[4]">
                     <font size="-1">
-                      {{ action[6] }}
+                      {{ indexToSymbols[action[5]] }}
                     </font>
                     <div v-if="action.length > 8">
                       <font size="-1">
@@ -634,6 +634,8 @@
 
           addressToIndex: {},
           indexToAddress: [],
+          indexToSymbols: {},
+          indexToDecimals: {},
 
           transfers: {},
           pools: {},
@@ -961,11 +963,13 @@
             // console.log("this.trades: " + JSON.stringify(this.trades, null, 2));
             // multi for (const [txHash, txInfo] of Object.entries(this.trades).slice(900, 950)) {
             for (const [txHash, txInfo] of Object.entries(this.trades)) {
-              const timestamp = this.blockTimestamps[txInfo.blockNumber] || null;
-              let actions = null;
-              const sortedLogs = [];
+              // const timestamp = this.blockTimestamps[txInfo.blockNumber] || null;
 
               // console.log(txHash + " => " + JSON.stringify(txInfo, null, 2));
+              const [blockNumber, timestamp, txIndex, isDex, logs] = txInfo;
+
+              let actions = null;
+              // const sortedLogs = [];
 
               // console.log("txInfo.logs: " + JSON.stringify(txInfo.logs, null, 2));
               // for (const [logIndex, logInfo] of Object.entries(txInfo.logs)) {
@@ -973,19 +977,21 @@
               //   sortedLogs.push({ logIndex, type, tokenIndex, fromIndex, toIndex, tokens });
               // }
 
-              for (const row of txInfo.logs) {
-                sortedLogs.push(row);
+              // for (const row of txInfo[4]) {
+              //   sortedLogs.push(row);
+              // }
+              if (logs.length > 1) {
+                logs.sort((a, b) => {
+                  return a[0] - b[0];
+                });              
               }
-              // sortedLogs.sort((a, b) => {
-              //   return a[0] - b[0];
-              // });
-              // console.log("sortedLogs: " + JSON.stringify(sortedLogs, null, 2));
+              // console.log("logs: " + JSON.stringify(logs, null, 2));
 
-              const txLogs = sortedLogs.filter(e => e[1] == "tx");
+              // const txLogs = logs.filter(e => e[1] == "tx");
               // console.log("txLogs: " + JSON.stringify(txLogs));
 
               // const altTxLogs = sortedLogs.filter(e => e.type == "alttx");
-              const uLogs = sortedLogs.filter(e => e[1] == "swap" || e[1] == "mint" || e[1] == "burn" || e[1] == "collect");
+              // const uLogs = sortedLogs.filter(e => e[1] == "swap" || e[1] == "mint" || e[1] == "burn" || e[1] == "collect");
               // console.log("uLogs: " + JSON.stringify(uLogs));
 
               // const u2Logs = sortedLogs.filter(e => e.source == "u2");
@@ -995,18 +1001,18 @@
               // console.log("u2Logs: " + JSON.stringify(u2Logs, null, 2));
               // console.log("u3Logs: " + JSON.stringify(u3Logs, null, 2));
 
-              if (uLogs.length == 0 && txLogs.length > 0) {
+              if (!isDex) {
                 actions = [];
-                for (const log of sortedLogs) {
-                  const tokenIndex = log[5];
-                  const tokenAddress = this.indexToAddress[tokenIndex];
-                  const tokenSymbol = this.settings.coins[tokenAddress] && this.settings.coins[tokenAddress].symbol || null;
-                  const decimals = this.settings.coins[tokenAddress] && this.settings.coins[tokenAddress].decimals || 18;
+                for (const log of logs) {
+                  // const tokenIndex = log[5];
+                  // const tokenAddress = this.indexToAddress[tokenIndex];
+                  // const tokenSymbol = this.settings.coins[tokenAddress] && this.settings.coins[tokenAddress].symbol || null;
+                  // const decimals = this.settings.coins[tokenAddress] && this.settings.coins[tokenAddress].decimals || 18;
                   // actions.push([ log[0], log[1], tokenAddress, tokenSymbol, decimals, this.indexToAddress[log[3]], this.indexToAddress[log[4]], log[5] ]);
-                  actions.push([ ...log, tokenSymbol, decimals ]);
+                  actions.push([ ...log, /*tokenSymbol, decimals*/ ]);
                 }
 
-              } else if (uLogs.length > 0) {
+              } else if (uLogs.length > 0 && false) {
                 // console.log("uLogs: " + JSON.stringify(uLogs));
                 actions = [];
                 for (const log of uLogs) {
@@ -1128,15 +1134,15 @@
               // if (uLogs.length == 1 && txHash == "0x9f22ce032b8ff79fccd20f3465d0a09efc293afac3936035de5d7496276cb1eb") {
               // if (uLogs.length == 0 && txLogs.length > 1) {
               // if (txHash == "0x222c541878cf98dacd004e833bfa63a661521679c9c90a970ed47b1cd0d1e3b0") {
-                results.push({
+                results.push([
                   txHash,
-                  blockNumber: txInfo.blockNumber,
+                  blockNumber,
                   timestamp,
-                  txIndex: txInfo.txIndex,
-                  coin: txInfo.token,
-                  logs: txInfo.logs,
+                  txIndex,
+                  // txInfo.token,
+                  // logs: txInfo.logs,
                   actions,
-                });
+                ]);
                 // console.log("results: " + JSON.stringify(results, null, 2));
               // }
             }
@@ -2289,6 +2295,8 @@
           async loadCurrentData() {
             const db = new Dexie(this.db.name);
             db.version(this.db.version).stores(this.db.schemaDefinition);
+            const indexToSymbols = this.indexToSymbols;
+            const indexToDecimals = this.indexToDecimals;
             const trades = {};
             const transfers = {};
             const pools = {};
@@ -2296,26 +2304,16 @@
             for (const [coinAddress, coinInfo] of Object.entries(this.settings.coins)) {
               if (coinInfo.include) {
                 console.log(moment().format("HH:mm:ss") + " loadCurrentData: " + coinAddress + " " + coinInfo.symbol + " " + coinInfo.name);
-
-                const transfersDataObject = await db.cache.where("objectName").equals(coinAddress + "_transfers").toArray();
-                if (transfersDataObject.length == 1) {
-                  const tokenIndex = this.addressToIndex[coinAddress];
-                  for (const [blockNumber, txIndexes] of Object.entries(transfersDataObject[0].object)) {
-                    for (const [txIndex, txHashes] of Object.entries(txIndexes)) {
-                      for (const [txHash, logIndexes] of Object.entries(txHashes)) {
-                        if (!trades[txHash]) {
-                          trades[txHash] = { blockNumber, txIndex, logs: [] };
-                        }
-                        for (const [logIndex, txData] of Object.entries(logIndexes)) {
-                          trades[txHash].logs.push([ logIndex, "tx", ...txData, tokenIndex ]);
-                        }
-                      }
-                    }
-                  }
+                const tokenIndex = this.addressToIndex[coinAddress];
+                if (!(tokenIndex in indexToSymbols)) {
+                  indexToSymbols[tokenIndex] = coinInfo.symbol;
+                }
+                if (!(tokenIndex in indexToDecimals)) {
+                  indexToDecimals[tokenIndex] = coinInfo.decimals;
                 }
 
                 const uniswapV2PoolsDataObject = await db.cache.where("objectName").equals(coinAddress + "_uniswapv2pools").toArray();
-                if (uniswapV2PoolsDataObject.length == 1) {
+                if (uniswapV2PoolsDataObject.length == 1 && false) {
                   for (const [blockNumber, poolsInfo] of Object.entries(uniswapV2PoolsDataObject[0].object)) {
                     for (const [poolAddress, poolInfo] of Object.entries(poolsInfo)) {
                       const poolIndex = this.addressToIndex[poolAddress];
@@ -2338,7 +2336,8 @@
                         for (const [txIndex, txHashes] of Object.entries(txIndexes)) {
                           for (const [txHash, logIndexes] of Object.entries(txHashes)) {
                             if (!trades[txHash]) {
-                              trades[txHash] = { blockNumber, txIndex, logs: [] };
+                              const timestamp = this.blockTimestamps[blockNumber] || null;
+                              trades[txHash] = { blockNumber, timestamp, txIndex, dexTrade: true, logs: [] };
                             }
                             for (const [logIndex, txData] of Object.entries(logIndexes)) {
                               trades[txHash].logs.push([ logIndex, ...txData, poolIndex ]);
@@ -2346,27 +2345,27 @@
                           }
                         }
                       }
-                      const altTokenIndex = this.addressToIndex[altToken.address];
-                      const altTradesDataObject = await db.cache.where("objectName").equals(poolAddress + "_" + altToken.address + "_transfers").toArray();
-                      const altTradesData = altTradesDataObject.length == 1 ? altTradesDataObject[0].object : {};
-                      for (const [blockNumber, txIndexes] of Object.entries(altTradesData)) {
-                        for (const [txIndex, txHashes] of Object.entries(txIndexes)) {
-                          for (const [txHash, logIndexes] of Object.entries(txHashes)) {
-                            if (!trades[txHash]) {
-                              trades[txHash] = { blockNumber, txIndex, logs: [] };
-                            }
-                            for (const [logIndex, txData] of Object.entries(logIndexes)) {
-                              trades[txHash].logs.push([ logIndex, "alttx", ...txData, altTokenIndex ]);
-                            }
-                          }
-                        }
-                      }
+                      // const altTokenIndex = this.addressToIndex[altToken.address];
+                      // const altTradesDataObject = await db.cache.where("objectName").equals(poolAddress + "_" + altToken.address + "_transfers").toArray();
+                      // const altTradesData = altTradesDataObject.length == 1 ? altTradesDataObject[0].object : {};
+                      // for (const [blockNumber, txIndexes] of Object.entries(altTradesData)) {
+                      //   for (const [txIndex, txHashes] of Object.entries(txIndexes)) {
+                      //     for (const [txHash, logIndexes] of Object.entries(txHashes)) {
+                      //       if (!trades[txHash]) {
+                      //         trades[txHash] = { blockNumber, txIndex, logs: [] };
+                      //       }
+                      //       for (const [logIndex, txData] of Object.entries(logIndexes)) {
+                      //         trades[txHash].logs.push([ logIndex, "alttx", ...txData, altTokenIndex ]);
+                      //       }
+                      //     }
+                      //   }
+                      // }
                     }
                   }
                 }
 
                 const uniswapV3PoolsDataObject = await db.cache.where("objectName").equals(coinAddress + "_uniswapv3pools").toArray();
-                if (uniswapV3PoolsDataObject.length == 1) {
+                if (uniswapV3PoolsDataObject.length == 1 && false) {
                   for (const [blockNumber, poolsInfo] of Object.entries(uniswapV3PoolsDataObject[0].object)) {
                     for (const [poolAddress, poolInfo] of Object.entries(poolsInfo)) {
                       const poolIndex = this.addressToIndex[poolAddress];
@@ -2391,7 +2390,8 @@
                         for (const [txIndex, txHashes] of Object.entries(txIndexes)) {
                           for (const [txHash, logIndexes] of Object.entries(txHashes)) {
                             if (!trades[txHash]) {
-                              trades[txHash] = { blockNumber, txIndex, logs: [] };
+                              const timestamp = this.blockTimestamps[blockNumber] || null;
+                              trades[txHash] = { blockNumber, timestamp, txIndex, dexTrade: true, logs: [] };
                             }
                             for (const [logIndex, txData] of Object.entries(logIndexes)) {
                               trades[txHash].logs.push([ logIndex, ...txData, poolIndex ]);
@@ -2399,33 +2399,61 @@
                           }
                         }
                       }
-                      const altTokenIndex = this.addressToIndex[altToken.address];
-                      const altTradesDataObject = await db.cache.where("objectName").equals(poolAddress + "_" + altToken.address + "_transfers").toArray();
-                      const altTradesData = altTradesDataObject.length == 1 ? altTradesDataObject[0].object : {};
-                      for (const [blockNumber, txIndexes] of Object.entries(altTradesData)) {
-                        for (const [txIndex, txHashes] of Object.entries(txIndexes)) {
-                          for (const [txHash, logIndexes] of Object.entries(txHashes)) {
-                            if (!trades[txHash]) {
-                              trades[txHash] = { blockNumber, txIndex, logs: [] };
-                            }
-                            for (const [logIndex, txData] of Object.entries(logIndexes)) {
-                              trades[txHash].logs.push([ logIndex, "alttx", ...txData, altTokenIndex ]);
-                            }
+                      // const altTokenIndex = this.addressToIndex[altToken.address];
+                      // const altTradesDataObject = await db.cache.where("objectName").equals(poolAddress + "_" + altToken.address + "_transfers").toArray();
+                      // const altTradesData = altTradesDataObject.length == 1 ? altTradesDataObject[0].object : {};
+                      // for (const [blockNumber, txIndexes] of Object.entries(altTradesData)) {
+                      //   for (const [txIndex, txHashes] of Object.entries(txIndexes)) {
+                      //     for (const [txHash, logIndexes] of Object.entries(txHashes)) {
+                      //       if (!trades[txHash]) {
+                      //         trades[txHash] = { blockNumber, txIndex, logs: [] };
+                      //       }
+                      //       for (const [logIndex, txData] of Object.entries(logIndexes)) {
+                      //         trades[txHash].logs.push([ logIndex, "alttx", ...txData, altTokenIndex ]);
+                      //       }
+                      //     }
+                      //   }
+                      // }
+                    }
+                  }
+                }
+
+                const transfersDataObject = await db.cache.where("objectName").equals(coinAddress + "_transfers").toArray();
+                if (transfersDataObject.length == 1) {
+                  for (const [blockNumber, txIndexes] of Object.entries(transfersDataObject[0].object)) {
+                    for (const [txIndex, txHashes] of Object.entries(txIndexes)) {
+                      for (const [txHash, logIndexes] of Object.entries(txHashes)) {
+                        if (!trades[txHash]) {
+                          const timestamp = this.blockTimestamps[blockNumber] || null;
+                          // trades[txHash] = { blockNumber, timestamp, txIndex, dexTrade: false, logs: [] };
+                          trades[txHash] = [ blockNumber, timestamp, txIndex, false, [] ];
+                        }
+                        // if (!trades[txHash].dexTrade) {
+                        if (!trades[txHash][3]) {
+                          for (const [logIndex, txData] of Object.entries(logIndexes)) {
+                            // trades[txHash].logs.push([ logIndex, "tx", ...txData, tokenIndex ]);
+                            trades[txHash][4].push([ logIndex, "tx", ...txData, tokenIndex ]);
                           }
                         }
                       }
                     }
                   }
                 }
+
               }
             }
             db.close();
             console.log(moment().format("HH:mm:ss") + " loadCurrentData END");
+            console.log(moment().format("HH:mm:ss") + " loadCurrentData - indexToSymbols: " + JSON.stringify(indexToSymbols));
+            console.log(moment().format("HH:mm:ss") + " loadCurrentData - indexToDecimals: " + JSON.stringify(indexToDecimals));
+            console.log(moment().format("HH:mm:ss") + " loadCurrentData - trades: " + JSON.stringify(trades, null, 2));
             // console.log("Loaded " + count + " events");
             // console.log("Loaded " + Object.keys(pools).length + " Uniswap V2 & V3 pools");
             // console.log("loadCurrentData - pools: " + JSON.stringify(pools, null, 2));
             // console.log("loadCurrentData - trades['0x055cde7dfb6866abf5e6986dcce438061b945a17d72ad61a2ffeb3f6029765c5']: " + JSON.stringify(trades["0x055cde7dfb6866abf5e6986dcce438061b945a17d72ad61a2ffeb3f6029765c5"], null, 2));
             // console.log("pools: " + JSON.stringify(pools, null, 2));
+            this.indexToSymbols = indexToSymbols;
+            this.indexToDecimals = indexToDecimals;
             this.trades = trades;
             this.transfers = transfers;
             this.pools = pools;
