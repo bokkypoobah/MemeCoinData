@@ -280,8 +280,8 @@
                 <div v-else>
                   <font size="-2"><pre>{{ data.item }}</pre></font>
                 </div>
-                <font size="-2"><pre>{{ data.item }}</pre></font>
                 -->
+                <font size="-2"><pre>{{ data.item }}</pre></font>
               </template>
               <template #cell(from)="data">
                 <div v-if="data.item[4]">
@@ -983,7 +983,7 @@
               if (logs.length > 1) {
                 logs.sort((a, b) => {
                   return a[0] - b[0];
-                });              
+                });
               }
               // console.log("logs: " + JSON.stringify(logs, null, 2));
 
@@ -1002,16 +1002,18 @@
               // console.log("u3Logs: " + JSON.stringify(u3Logs, null, 2));
 
               if (!isDex) {
-                actions = [];
-                for (const log of logs) {
-                  // const tokenIndex = log[5];
-                  // const tokenAddress = this.indexToAddress[tokenIndex];
-                  // const tokenSymbol = this.settings.coins[tokenAddress] && this.settings.coins[tokenAddress].symbol || null;
-                  // const decimals = this.settings.coins[tokenAddress] && this.settings.coins[tokenAddress].decimals || 18;
-                  // actions.push([ log[0], log[1], tokenAddress, tokenSymbol, decimals, this.indexToAddress[log[3]], this.indexToAddress[log[4]], log[5] ]);
-                  actions.push([ ...log, /*tokenSymbol, decimals*/ ]);
-                }
-
+                actions = logs;
+                // actions = [];
+                // for (const log of logs) {
+                //   // const tokenIndex = log[5];
+                //   // const tokenAddress = this.indexToAddress[tokenIndex];
+                //   // const tokenSymbol = this.settings.coins[tokenAddress] && this.settings.coins[tokenAddress].symbol || null;
+                //   // const decimals = this.settings.coins[tokenAddress] && this.settings.coins[tokenAddress].decimals || 18;
+                //   // actions.push([ log[0], log[1], tokenAddress, tokenSymbol, decimals, this.indexToAddress[log[3]], this.indexToAddress[log[4]], log[5] ]);
+                //   actions.push([ ...log, /*tokenSymbol, decimals*/ ]);
+                // }
+              } else if (isDex) {
+                actions = logs;
               } else if (uLogs.length > 0 && false) {
                 // console.log("uLogs: " + JSON.stringify(uLogs));
                 actions = [];
@@ -1461,6 +1463,8 @@
                 await this.syncUniswapV2Trades(context);
                 await this.syncUniswapV3Trades(context);
                 await this.syncUniswapAltTokenTransfers(context);
+                // await this.syncAllENSNames(context);
+                // await this.testSyncENSNames(context);
               }
             }
             this.sync.section = null;
@@ -1469,6 +1473,7 @@
             await this.loadCurrentData();
           },
           async syncBlockTimestamps(context, newBlocks) {
+            console.log("syncBlockTimestamps");
             this.sync.completed = 0;
             this.sync.total = newBlocks.length;
             this.sync.section = context.symbol + ' Timestamps';
@@ -1491,7 +1496,7 @@
                 });
               const timestamps = data.data && data.data.blocks || [];
               for (const timestampItem of timestamps) {
-                Vue.set(this.blockTimestamps, timestampItem.number, timestampItem.timestamp);
+                Vue.set(this.blockTimestamps, parseInt(timestampItem.number), parseInt(timestampItem.timestamp));
               }
               this.sync.completed += timestamps.length;
             }
@@ -1500,24 +1505,108 @@
               console.log("error: " + error);
             });
           },
+          // async testSyncENSNames(context) {
+          //   await this.syncENSNames(context, this.indexToAddress);
+          // },
+          // async syncAllENSNames(context) {
+          //   console.log("syncAllENSNames");
+          //   const ensReverseRecordsContract = new ethers.Contract(ENSREVERSERECORDSADDRESS, ENSREVERSERECORDSABI, context.provider);
+          //   console.log("this.indexToAddress: " + JSON.stringify(this.indexToAddress));
+          //   const addresses = this.indexToAddress;
+          //   // addresses.sort();
+          //
+          //   const MAXBATCHSIZE = 1000;
+          //   let batchSize = MAXBATCHSIZE;
+          //   let completed = 0;
+          //   let done = false;
+          //   let start = completed;
+          //   do {
+          //     let end = parseInt(start) + batchSize - 1;
+          //     if (end > addresses.length) {
+          //       end = addresses.length;
+          //     }
+          //     try {
+          //       const batch = addresses.slice(start, end + 1);
+          //       const allnames = await ensReverseRecordsContract.getNames(batch);
+          //       console.log(start + " - " + end + " " + batch.length);
+          //       start = parseInt(end) + 1;
+          //     } catch (e) {
+          //       if (batchSize > 1) {
+          //         batchSize = parseInt(batchSize / 2);
+          //       } else {
+          //         console.log("Skipping #" + start + " " + addresses[start]);
+          //         start = parseInt(start) + 1;
+          //         batchSize = MAXBATCHSIZE;
+          //       }
+          //     }
+          //     done = start > this.indexToAddress.length;
+          //   } while (!done);
+          //
+          // },
           async syncENSNames(context, newAccounts) {
+            console.log("syncENSNames");
             this.sync.completed = 0;
             this.sync.total = newAccounts.length;
             this.sync.section = context.symbol + ' ENS';
-            const BATCHSIZE = 1000;
             const ensReverseRecordsContract = new ethers.Contract(ENSREVERSERECORDSADDRESS, ENSREVERSERECORDSABI, context.provider);
-            for (let i = 0; i < newAccounts.length; i += BATCHSIZE) {
-              const batch = newAccounts.slice(i, parseInt(i) + BATCHSIZE);
-              const allnames = await ensReverseRecordsContract.getNames(batch);
-              for (let j = 0; j < batch.length; j++) {
-                const account = batch[j];
-                const name = allnames[j];
-                // const normalized = normalize(account);
-                // console.log(account + " => " + name);
-                Vue.set(this.ensMap, account, name);
+
+            const MAXBATCHSIZE = 1000;
+            let batchSize = MAXBATCHSIZE;
+            let completed = 0;
+            let start = completed;
+            do {
+              let end = parseInt(start) + batchSize - 1;
+              if (end > newAccounts.length) {
+                end = newAccounts.length;
               }
-              this.sync.completed += batch.length;
-            }
+              try {
+                const batch = newAccounts.slice(start, end + 1);
+                const allnames = await ensReverseRecordsContract.getNames(batch);
+                console.log(start + " - " + end + " " + batch.length);
+                for (let j = 0; j < batch.length; j++) {
+                  const account = batch[j];
+                  const name = allnames[j];
+                  // const normalized = normalize(account);
+                  if (name.length > 0) {
+                    // console.log(account + " => " + name);
+                    Vue.set(this.ensMap, account, name);
+                  }
+                }
+                this.sync.completed += batch.length;
+                start = parseInt(end) + 1;
+              } catch (e) {
+                if (batchSize > 1) {
+                  batchSize = parseInt(batchSize / 2);
+                } else {
+                  console.log("Skipping #" + start + " " + newAccounts[start]);
+                  start = parseInt(start) + 1;
+                  batchSize = MAXBATCHSIZE;
+                }
+              }
+            } while (start <= newAccounts.length);
+
+
+            //
+            //
+            // const BATCHSIZE = 5;
+            // for (let i = 0; i < newAccounts.length; i += BATCHSIZE) {
+            //   const batch = newAccounts.slice(i, parseInt(i) + BATCHSIZE);
+            //   console.log("batch: " + batch);
+            //   try {
+            //     const allnames = await ensReverseRecordsContract.getNames(batch);
+            //     console.log("allnames: " + allnames);
+            //     for (let j = 0; j < batch.length; j++) {
+            //       const account = batch[j];
+            //       const name = allnames[j];
+            //       // const normalized = normalize(account);
+            //       // console.log(account + " => " + name);
+            //       Vue.set(this.ensMap, account, name);
+            //     }
+            //     this.sync.completed += batch.length;
+            //   } catch (e) {
+            //     console.log("ENS getNames: " + e);
+            //   }
+            // }
             await context.db.cache.put({ objectName: "ensMap", object: this.ensMap }).then (function() {
             }).catch(function(error) {
               console.log("error: " + error);
@@ -1597,17 +1686,18 @@
                     const fromIndex = tempAddressToIndex[from];
                     const toIndex = tempAddressToIndex[to];
 
-                    if (!(event.blockNumber in transfers)) {
-                      transfers[event.blockNumber] = {};
+                    const [eventBlockNumber, eventTransactionIndex, eventLogIndex] = [parseInt(event.blockNumber), parseInt(event.transactionIndex), parseInt(event.logIndex)];
+                    if (!(eventBlockNumber in transfers)) {
+                      transfers[eventBlockNumber] = {};
                     }
-                    if (!(event.transactionIndex in transfers[event.blockNumber])) {
-                      transfers[event.blockNumber][event.transactionIndex] = {};
+                    if (!(event.transactionIndex in transfers[eventBlockNumber])) {
+                      transfers[eventBlockNumber][eventTransactionIndex] = {};
                     }
-                    if (!(event.transactionHash in transfers[event.blockNumber][event.transactionIndex])) {
-                      transfers[event.blockNumber][event.transactionIndex][event.transactionHash] = {};
+                    if (!(event.transactionHash in transfers[eventBlockNumber][eventTransactionIndex])) {
+                      transfers[eventBlockNumber][eventTransactionIndex][event.transactionHash] = {};
                     }
-                    if (!(event.logIndex in transfers[event.blockNumber][event.transactionIndex][event.transactionHash])) {
-                      transfers[event.blockNumber][event.transactionIndex][event.transactionHash][event.logIndex] = [ fromIndex, toIndex, tokens ];
+                    if (!(event.logIndex in transfers[eventBlockNumber][eventTransactionIndex][event.transactionHash])) {
+                      transfers[eventBlockNumber][eventTransactionIndex][event.transactionHash][eventLogIndex] = [ fromIndex, toIndex, tokens ];
                       newTransfers++;
                     }
                   }
@@ -1621,6 +1711,7 @@
                 batchSize = parseInt(batchSize * BATCHREDUCTIONFACTOR);
               }
               done = fromBlock >= context.confirmedBlockNumber;
+              // done = true; // TODO
             } while (!done && !this.sync.halt);
 
             Vue.set(this, "addressToIndex", tempAddressToIndex);
@@ -1633,14 +1724,14 @@
             }).catch(function(error) {
               console.log("error: " + error);
             });
-
-            newAccounts[this.coinbase] = null;
-            await this.syncENSNames(context, Object.keys(newAccounts));
-            await this.syncBlockTimestamps(context, Object.keys(newBlocks));
             await context.db.cache.put({ objectName: context.address + "_transfers", object: transfers }).then (function() {
             }).catch(function(error) {
               console.log("error: " + error);
             });
+
+            newAccounts[this.coinbase] = null;
+            await this.syncENSNames(context, Object.keys(newAccounts));
+            await this.syncBlockTimestamps(context, Object.keys(newBlocks));
           },
           async getERC20TokenDetails(context, address) {
             const results = { address };
@@ -2293,6 +2384,25 @@
 
           },
           async loadCurrentData() {
+
+            // [
+            //   "0xa3f23edc79ae0aa3052a0b5a5fb81f9e13729adb338592d970ffe4a8f5ee3766",
+            //   "17149228",
+            //   "1682740691",
+            //   "57",
+            //   [
+            //     [
+            //       "134",
+            //       "tx",
+            //       2,
+            //       3,
+            //       "69000000000000000000000000000",
+            //       0
+            //     ]
+            //   ]
+            // ]
+            // [txHash, blockNumber, timestamp, txIndex, [[logIndex, type, fromIndex, toIndex, amount0, token0Index]]]
+
             const db = new Dexie(this.db.name);
             db.version(this.db.version).stores(this.db.schemaDefinition);
             const indexToSymbols = this.indexToSymbols;
@@ -2337,10 +2447,12 @@
                           for (const [txHash, logIndexes] of Object.entries(txHashes)) {
                             if (!trades[txHash]) {
                               const timestamp = this.blockTimestamps[blockNumber] || null;
-                              trades[txHash] = { blockNumber, timestamp, txIndex, dexTrade: true, logs: [] };
+                              // trades[txHash] = { blockNumber, timestamp, txIndex, dexTrade: true, logs: [] };
+                              trades[txHash] = [ blockNumber, timestamp, txIndex, true, [] ];
                             }
                             for (const [logIndex, txData] of Object.entries(logIndexes)) {
-                              trades[txHash].logs.push([ logIndex, ...txData, poolIndex ]);
+                              // trades[txHash].logs.push([ logIndex, ...txData, poolIndex ]);
+                              trades[txHash][4].push([ logIndex, "tx", ...txData, tokenIndex ]);
                             }
                           }
                         }
@@ -2444,9 +2556,9 @@
             }
             db.close();
             console.log(moment().format("HH:mm:ss") + " loadCurrentData END");
-            console.log(moment().format("HH:mm:ss") + " loadCurrentData - indexToSymbols: " + JSON.stringify(indexToSymbols));
-            console.log(moment().format("HH:mm:ss") + " loadCurrentData - indexToDecimals: " + JSON.stringify(indexToDecimals));
-            console.log(moment().format("HH:mm:ss") + " loadCurrentData - trades: " + JSON.stringify(trades, null, 2));
+            // console.log(moment().format("HH:mm:ss") + " loadCurrentData - indexToSymbols: " + JSON.stringify(indexToSymbols));
+            // console.log(moment().format("HH:mm:ss") + " loadCurrentData - indexToDecimals: " + JSON.stringify(indexToDecimals));
+            // console.log(moment().format("HH:mm:ss") + " loadCurrentData - trades: " + JSON.stringify(trades, null, 2));
             // console.log("Loaded " + count + " events");
             // console.log("Loaded " + Object.keys(pools).length + " Uniswap V2 & V3 pools");
             // console.log("loadCurrentData - pools: " + JSON.stringify(pools, null, 2));
