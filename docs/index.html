@@ -634,6 +634,7 @@
 
           addressToIndex: {},
           indexToAddress: [],
+          indexToName: {},
           indexToSymbols: {},
           indexToDecimals: {},
 
@@ -643,7 +644,6 @@
           blockTimestamps: {},
           collections: {},
           tokens: [],
-          ensMap: {},
           selectedCollections: {},
           selectedMainTable: {},
           accountsSortOptions: [
@@ -728,7 +728,7 @@
             // { key: 'include', label: 'Include', sortable: true, thStyle: 'width: 10%;', tdClass: 'text-truncate' },
           ],
           db: {
-            name: "memecoindata089f",
+            name: "memecoindata089g",
             version: 1,
             schemaDefinition: {
               cache: '&objectName',
@@ -1569,7 +1569,7 @@
                   // const normalized = normalize(account);
                   if (name.length > 0) {
                     // console.log(account + " => " + name);
-                    Vue.set(this.ensMap, account, name);
+                    Vue.set(this.indexToName, this.addressToIndex[account], name);
                   }
                 }
                 this.sync.completed += batch.length;
@@ -1600,14 +1600,14 @@
             //       const name = allnames[j];
             //       // const normalized = normalize(account);
             //       // console.log(account + " => " + name);
-            //       Vue.set(this.ensMap, account, name);
+            //       Vue.set(this.indexToName, account, name);
             //     }
             //     this.sync.completed += batch.length;
             //   } catch (e) {
             //     console.log("ENS getNames: " + e);
             //   }
             // }
-            await context.db.cache.put({ objectName: "ensMap", object: this.ensMap }).then (function() {
+            await context.db.cache.put({ objectName: "indexToName", object: this.indexToName }).then (function() {
             }).catch(function(error) {
               console.log("error: " + error);
             });
@@ -1669,10 +1669,10 @@
                     if (!(event.blockNumber in this.blockTimestamps) && !(event.blockNumber in newBlocks)) {
                       newBlocks[event.blockNumber] = null;
                     }
-                    if (!(from in this.ensMap) && !(from in newAccounts)) {
+                    if (!(from in this.indexToName) && !(from in newAccounts)) {
                       newAccounts[from] = null;
                     }
-                    if (!(to in this.ensMap) && !(to in newAccounts)) {
+                    if (!(to in this.indexToName) && !(to in newAccounts)) {
                       newAccounts[to] = null;
                     }
 
@@ -2441,7 +2441,7 @@
                         blockNumber,
                         type: "UniswapV2Pool"
                       };
-                      Vue.set(this.ensMap, poolAddress, poolInfo.name);
+                      Vue.set(this.indexToName, poolAddress, poolInfo.name);
                       for (const [blockNumber, txIndexes] of Object.entries(tradesData)) {
                         for (const [txIndex, txHashes] of Object.entries(txIndexes)) {
                           for (const [txHash, logIndexes] of Object.entries(txHashes)) {
@@ -2497,7 +2497,7 @@
                         blockNumber,
                         type: "UniswapV3Pool",
                       };
-                      Vue.set(this.ensMap, poolAddress, poolInfo.name);
+                      Vue.set(this.indexToName, poolAddress, poolInfo.name);
                       for (const [blockNumber, txIndexes] of Object.entries(tradesData)) {
                         for (const [txIndex, txHashes] of Object.entries(txIndexes)) {
                           for (const [txHash, logIndexes] of Object.entries(txHashes)) {
@@ -2636,13 +2636,17 @@
             }
             return e.toString();
           },
-          ensOrAddress(address, length = 0) {
-            if (this.ensMap) {
-              if (address in this.ensMap && this.ensMap[address]) {
-                return length == 0 ? this.ensMap[address] : this.ensMap[address].substring(0, length);
-              }
+          ensOrAddress(addressOrAddressIndex, length = 0) {
+            let result = null;
+            if (new RegExp('^[0-9,]+$').test(addressOrAddressIndex)) {
+              result = this.indexToName[addressOrAddressIndex];
+            } else {
+              result = this.indexToName[this.addressToIndex[addressOrAddressIndex]] || addressOrAddressIndex;
             }
-            return address == null ? null : (length == 0 ? address : address.substring(0, length));
+            if (result && length > 0) {
+              result = result.substring(0, length);
+            }
+            return result;
           },
           exportTxHashes() {
             console.log("exportTxHashes");
@@ -2819,20 +2823,20 @@
                 const addresses = Object.keys(mainOwners);
                 this.sync.total = addresses.length;
                 this.sync.section = "ENS Names";
-                const ensMap = {};
+                const indexToName = {};
                 for (let i = 0; i < addresses.length & !this.sync.halt; i += ENSOWNERBATCHSIZE) {
                   const batch = addresses.slice(i, parseInt(i) + ENSOWNERBATCHSIZE);
                   const allnames = await ensReverseRecordsContract.getNames(batch);
                   for (let j = 0; j < batch.length; j++) {
                     const address = batch[j];
                     const name = allnames[j];
-                    ensMap[address] = name != null && name.length > 0 ? name : address;
+                    indexToName[address] = name != null && name.length > 0 ? name : address;
                     // const normalized = normalize(address);
                   }
                   this.sync.completed = parseInt(this.sync.completed) + batch.length;
                 }
-                this.ensMap = ensMap;
-                await db.cache.put({ objectName: 'ensMap', object: ensMap }).then (function() {
+                this.indexToName = indexToName;
+                await db.cache.put({ objectName: 'indexToName', object: indexToName }).then (function() {
                 }).catch(function(error) {
                   console.log("error: " + error);
                 });
@@ -3017,9 +3021,9 @@
             if (blockTimestampsDataItems.length == 1) {
               this.blockTimestamps = blockTimestampsDataItems[0].object;
             }
-            const ensMapDataItems = await db0.cache.where("objectName").equals('ensMap').toArray();
-            if (ensMapDataItems.length == 1) {
-              this.ensMap = ensMapDataItems[0].object;
+            const indexToNameDataItems = await db0.cache.where("objectName").equals('indexToName').toArray();
+            if (indexToNameDataItems.length == 1) {
+              this.indexToName = indexToNameDataItems[0].object;
             }
             const indexToAddressDataItems = await db0.cache.where("objectName").equals('indexToAddress').toArray();
             // console.log("indexToAddressDataItems.length: " + indexToAddressDataItems.length);
