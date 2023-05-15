@@ -1210,18 +1210,18 @@
             let results = this.filteredTransfers;
             if (this.settings.transfersTable.sortOption == 'blocknumberasc') {
               results.sort((a, b) => {
-                if (a.blockNumber == b.blockNumber) {
-                  return a.txIndex - b.txIndex;
+                if (a[1] == b[1]) {
+                  return a[3] - b[3];
                 } else {
-                  return a.blockNumber - b.blockNumber;
+                  return a[1] - b[1];
                 }
               });
             } else if (this.settings.transfersTable.sortOption == 'blocknumberdsc') {
               results.sort((a, b) => {
-                if (a.blockNumber == b.blockNumber) {
-                  return b.txIndex - a.txIndex;
+                if (a[1] == b[1]) {
+                  return b[3] - a[3];
                 } else {
-                  return b.blockNumber - a.blockNumber;
+                  return b[1] - a[1];
                 }
               });
             }
