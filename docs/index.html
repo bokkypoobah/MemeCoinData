@@ -258,7 +258,7 @@
               <template #cell(info)="data">
                 <div v-if="data.item[4]">
                   <div v-for="action of data.item[4]">
-                    <font size="-1"><pre>{{ action[1] }}</pre></font>
+                    <font size="-1"><pre>{{ transactionTypes[action[1]] || '(Unknown)' }}</pre></font>
                     <br />
                   </div>
                 </div>
@@ -727,6 +727,16 @@
             // { key: 'sync', label: 'Sync', sortable: true, thStyle: 'width: 10%;', tdClass: 'text-truncate' },
             // { key: 'include', label: 'Include', sortable: true, thStyle: 'width: 10%;', tdClass: 'text-truncate' },
           ],
+          transactionTypes: {
+            1: "Transfer",
+            21: "U2Mint",
+            22: "U2Swap",
+            23: "U2Burn",
+            31: "U3Mint",
+            32: "U3Swap",
+            33: "U3Burn",
+            34: "U3Collect",
+          },
           db: {
             name: "memecoindata089g",
             version: 1,
@@ -1457,11 +1467,11 @@
             for (const [address, coinInfo] of Object.entries(this.settings.coins)) {
               if (coinInfo.sync && !this.sync.halt) {
                 const context = { provider, confirmedBlockNumber, db, address, symbol: coinInfo.symbol };
-                await this.syncCoinTransfers(context);
+                // await this.syncCoinTransfers(context);
                 await this.syncUniswapV2Pools(context);
-                await this.syncUniswapV3Pools(context);
+                // await this.syncUniswapV3Pools(context);
                 await this.syncUniswapV2Trades(context);
-                await this.syncUniswapV3Trades(context);
+                // await this.syncUniswapV3Trades(context);
                 // await this.syncUniswapAltTokenTransfers(context);
                 // // await this.syncAllENSNames(context);
                 // // await this.testSyncENSNames(context);
@@ -1988,7 +1998,26 @@
                       const [eventBlockNumber, eventTransactionIndex, eventLogIndex] = [parseInt(event.blockNumber), parseInt(event.transactionIndex), parseInt(event.logIndex)];
                       const log = interface.parseLog(event);
                       let record = null;
-                      if (log.name == "Swap") {
+
+                      if (log.name == "Mint") {
+                        // event Mint(address indexed sender, uint amount0, uint amount1);
+                        const [sender, amount0, amount1] = log.args;
+                        if (!(sender in tempAddressToIndex)) {
+                          const index = tempIndexToAddress.length;
+                          tempAddressToIndex[sender] = index;
+                          tempIndexToAddress.push(sender);
+                        }
+                        const senderIndex = tempAddressToIndex[sender];
+                        // record = {
+                        //   source: "u2",
+                        //   type: "Mint",
+                        //   senderIndex,
+                        //   amount0: amount0.toString(),
+                        //   amount1: amount1.toString(),
+                        // };
+                        // TODO record = [ UNISWAPV2MINT, senderIndex, amount0.toString(), amount1.toString(), "u2" ];
+
+                      } else if (log.name == "Swap") {
                         // event Swap(address indexed sender, uint amount0In, uint amount1In, uint amount0Out, uint amount1Out, address indexed to);
                         const [sender, amount0In, amount1In, amount0Out, amount1Out, recipient] = log.args;
                         for (const address of [sender, recipient]) {
@@ -2008,25 +2037,8 @@
                         //   amount0: amount0In.gt(0) ? amount0In.toString() : "-" + amount0Out.toString(),
                         //   amount1: amount1In.gt(0) ? amount1In.toString() : "-" + amount1Out.toString(),
                         // };
-                        record = [ "swap", senderIndex, recipientIndex, amount0In.gt(0) ? amount0In.toString() : "-" + amount0Out.toString(), amount1In.gt(0) ? amount1In.toString() : "-" + amount1Out.toString(), "u2" ];
+                        record = [ UNISWAPV2SWAP, senderIndex, recipientIndex, amount0In.gt(0) ? amount0In.toString() : "-" + amount0Out.toString(), amount1In.gt(0) ? amount1In.toString() : "-" + amount1Out.toString(), "u2" ];
 
-                      } else if (log.name == "Mint") {
-                        // event Mint(address indexed sender, uint amount0, uint amount1);
-                        const [sender, amount0, amount1] = log.args;
-                        if (!(sender in tempAddressToIndex)) {
-                          const index = tempIndexToAddress.length;
-                          tempAddressToIndex[sender] = index;
-                          tempIndexToAddress.push(sender);
-                        }
-                        const senderIndex = tempAddressToIndex[sender];
-                        // record = {
-                        //   source: "u2",
-                        //   type: "Mint",
-                        //   senderIndex,
-                        //   amount0: amount0.toString(),
-                        //   amount1: amount1.toString(),
-                        // };
-                        record = [ "mint", senderIndex, amount0.toString(), amount1.toString(), "u2" ];
                       } else if (log.name == "Burn") {
                         // event Burn(address indexed sender, uint amount0, uint amount1, address indexed to);
                         const [sender, amount0, amount1, to] = log.args;
@@ -2047,7 +2059,7 @@
                         //   amount1: amount1.toString(),
                         //   to,
                         // };
-                        record = [ "burn", senderIndex, toIndex, amount0.toString(), amount1.toString(), "u2" ];
+                        // TODO record = [ UNISWAPV2BURN, senderIndex, toIndex, amount0.toString(), amount1.toString(), "u2" ];
                       }
                       if (record) {
                         if (!(eventBlockNumber in this.blockTimestamps) && !(eventBlockNumber in newBlocks)) {
@@ -2153,31 +2165,8 @@
                       const [eventBlockNumber, eventTransactionIndex, eventLogIndex] = [parseInt(event.blockNumber), parseInt(event.transactionIndex), parseInt(event.logIndex)];
                       const log = interface.parseLog(event);
                       let record = null;
-                      if (log.name == "Swap") {
-                        const [sender, recipient, amount0, amount1, sqrtPriceX96, liquidity, tick] = log.args;
-                        for (const address of [sender, recipient]) {
-                          if (!(address in tempAddressToIndex)) {
-                            const index = tempIndexToAddress.length;
-                            tempAddressToIndex[address] = index;
-                            tempIndexToAddress.push(address);
-                          }
-                        }
-                        const senderIndex = tempAddressToIndex[sender];
-                        const recipientIndex = tempAddressToIndex[recipient];
-                        // record = {
-                        //   source: "u3",
-                        //   type: "Swap",
-                        //   senderIndex,
-                        //   recipientIndex,
-                        //   amount0: amount0.toString(),
-                        //   amount1: amount1.toString(),
-                        //   sqrtPriceX96: sqrtPriceX96.toString(),
-                        //   liquidity: liquidity.toString(),
-                        //   tick: tick.toString(),
-                        // };
-                        record = [ "swap", senderIndex, recipientIndex, amount0.toString(), amount1.toString(), "u3" ];
 
-                      } else if (log.name == "Mint") {
+                      if (log.name == "Mint") {
                         // event Mint(address sender, address indexed owner, int24 indexed tickLower, int24 indexed tickUpper, uint128 amount, uint256 amount0, uint256 amount1);
                         const [sender, owner, tickLower, tickUpper, amount, amount0, amount1] = log.args;
                         for (const address of [sender, owner]) {
@@ -2200,7 +2189,32 @@
                         //   amount0: amount0.toString(),
                         //   amount1: amount1.toString(),
                         // };
-                        record = [ "mint", senderIndex, amount0.toString(), amount1.toString(), "u3", ownerIndex, amount.toString() ];
+                        // TODO record = [ UNISWAPV3MINT, senderIndex, amount0.toString(), amount1.toString(), "u3", ownerIndex, amount.toString() ];
+
+                      } else if (log.name == "Swap") {
+                        const [sender, recipient, amount0, amount1, sqrtPriceX96, liquidity, tick] = log.args;
+                        for (const address of [sender, recipient]) {
+                          if (!(address in tempAddressToIndex)) {
+                            const index = tempIndexToAddress.length;
+                            tempAddressToIndex[address] = index;
+                            tempIndexToAddress.push(address);
+                          }
+                        }
+                        const senderIndex = tempAddressToIndex[sender];
+                        const recipientIndex = tempAddressToIndex[recipient];
+                        // record = {
+                        //   source: "u3",
+                        //   type: "Swap",
+                        //   senderIndex,
+                        //   recipientIndex,
+                        //   amount0: amount0.toString(),
+                        //   amount1: amount1.toString(),
+                        //   sqrtPriceX96: sqrtPriceX96.toString(),
+                        //   liquidity: liquidity.toString(),
+                        //   tick: tick.toString(),
+                        // };
+                        record = [ UNISWAPV3SWAP, senderIndex, recipientIndex, amount0.toString(), amount1.toString(), "u3" ];
+
                       } else if (log.name == "Collect") {
                         // event Collect(address indexed owner, address recipient, int24 indexed tickLower, int24 indexed tickUpper, uint128 amount0, uint128 amount1);
                         const [owner, recipient, tickLower, tickUpper, amount0, amount1] = log.args;
@@ -2223,7 +2237,7 @@
                         //   amount0: amount0.toString(),
                         //   amount1: amount1.toString(),
                         // };
-                        record = [ "collect", ownerIndex, recipientIndex, amount0.toString(), amount1.toString(), "u3" ];
+                        // TODO record = [ UNISWAPV3COLLECT, ownerIndex, recipientIndex, amount0.toString(), amount1.toString(), "u3" ];
                       } else if (log.name == "Burn") {
                         // event Burn(address indexed owner, int24 indexed tickLower, int24 indexed tickUpper, uint128 amount, uint256 amount0, uint256 amount1);
                         const [owner, tickLower, tickUpper, amount, amount0, amount1] = log.args;
@@ -2243,7 +2257,7 @@
                         //   amount0: amount0.toString(),
                         //   amount1: amount1.toString(),
                         // };
-                        record = [ "burn", ownerIndex, amount.toString(), amount0.toString(), amount1.toString(), "u3" ];
+                        // TODO record = [ UNISWAPV3BURN, ownerIndex, amount.toString(), amount0.toString(), amount1.toString(), "u3" ];
                       }
                       if (record) {
                         if (!(eventBlockNumber in this.blockTimestamps) && !(eventBlockNumber in newBlocks)) {
@@ -2451,9 +2465,10 @@
             //     ]
             //   ]
             // ]
-            // [txHash, blockNumber, timestamp, txIndex, [[logIndex, type, fromIndex, toIndex, amount0, token0Index]]]
+            // [txHash, blockNumber, timestamp, txIndex, [[logIndex, type[1=tx,2[subtype]=u2,3[subtype]=u3], fromIndex, toIndex, amount0, token0Index]]]
 
-            // [txHash, blockNumber, timestamp, txIndex, [[logIndex, type, fromIndex, toIndex, amount0, token0Index, amount1, token1Index, pairIndex]]]
+            // [txHash, blockNumber, timestamp, txIndex, [[logIndex, type[1=tx,2[subtype]=u2,3[subtype]=u3], fromIndex, toIndex, amount0, token0Index, amount1, token1Index, pairIndex]]]
+            // subtype 1 mint, 2 swap, 3 collect, 4 burn
 
             const db = new Dexie(this.db.name);
             db.version(this.db.version).stores(this.db.schemaDefinition);
@@ -2478,11 +2493,13 @@
                 if (uniswapV2PoolsDataObject.length == 1) {
                   for (const [blockNumber, poolsInfo] of Object.entries(uniswapV2PoolsDataObject[0].object)) {
                     for (const [poolAddress, poolInfo] of Object.entries(poolsInfo)) {
+                      console.log("poolInfo: " + JSON.stringify(poolInfo, null, 2));
                       const poolIndex = this.addressToIndex[poolAddress];
                       const altToken = poolInfo.token0.address == coinAddress ? poolInfo.token1 : poolInfo.token0;
                       const tradesDataObject = await db.cache.where("objectName").equals(poolAddress + '_uniswapv2trades').toArray();
                       const tradesData = tradesDataObject.length == 1 ? tradesDataObject[0].object : {};
                       pools[poolAddress] = {
+                        poolIndex,
                         name: poolInfo.name,
                         coin: poolInfo.coin,
                         token0: poolInfo.token0,
@@ -2505,7 +2522,7 @@
                             for (const [logIndex, txData] of Object.entries(logIndexes)) {
                               console.log("txData: " + JSON.stringify(txData));
                               // trades[txHash].logs.push([ logIndex, ...txData, poolIndex ]);
-                              trades[txHash][4].push([ logIndex, 2, ...txData, tokenIndex ]);
+                              trades[txHash][4].push([ parseInt(logIndex), txData[0], txData[1], txData[2], txData[3], poolInfo.token0.addressIndex, txData[4], poolInfo.token1.addressIndex, poolIndex ]); // , poolInfo.token0.addressIndex, txData[4], poolInfo.token1.addressIndex, pooIndex ]);
                             }
                           }
                         }
@@ -2596,7 +2613,7 @@
                         }
                         if (!trades[txHash][3]) {
                           for (const [logIndex, txData] of Object.entries(logIndexes)) {
-                            trades[txHash][4].push([ parseInt(logIndex), 1, ...txData, tokenIndex ]);
+                            trades[txHash][4].push([ parseInt(logIndex), TRANSFER, ...txData, tokenIndex ]);
                           }
                         }
                       }
