@@ -1734,7 +1734,7 @@
             await this.syncBlockTimestamps(context, Object.keys(newBlocks));
           },
           async getERC20TokenDetails(context, address) {
-            const results = { address };
+            const results = { address, addressIndex: this.addressToIndex[address] };
             const erc20 = new ethers.Contract(address, ERC20ABI, context.provider);
             try {
               results.symbol = await erc20.symbol();
@@ -1775,6 +1775,8 @@
               [ '0x0d3648bd0f6ba80134a33ba9275ac585d9d315f0ad8355cddefde31afa28d0e9', coinAddressAs32Bytes, null ],
             ];
             const newBlocks = {};
+            const tempAddressToIndex = this.addressToIndex;
+            const tempIndexToAddress = this.indexToAddress;
             for (const [topicsIndex, topics] of topicsList.entries()) {
               let done = false;
               let fromBlock = startBlock;
@@ -1792,9 +1794,20 @@
                     }
                     const poolAddress = ethers.utils.getAddress('0x' + event.data.substring(26, 66));
                     if (!(poolAddress in pools[eventBlockNumber])) {
-                      const token0 = await this.getERC20TokenDetails(context, ethers.utils.getAddress('0x' + event.topics[1].substring(26)));
-                      const token1 = await this.getERC20TokenDetails(context, ethers.utils.getAddress('0x' + event.topics[2].substring(26)));
+                      const token0Address = ethers.utils.getAddress('0x' + event.topics[1].substring(26));
+                      const token1Address = ethers.utils.getAddress('0x' + event.topics[2].substring(26));
+                      for (const address of [poolAddress, token0Address, token1Address]) {
+                        if (!(address in tempAddressToIndex)) {
+                          const index = tempIndexToAddress.length;
+                          tempAddressToIndex[address] = index;
+                          tempIndexToAddress.push(address);
+                        }
+                      }
+                      const poolIndex = tempAddressToIndex[poolAddress];
+                      const token0 = await this.getERC20TokenDetails(context, token0Address);
+                      const token1 = await this.getERC20TokenDetails(context, token1Address);
                       pools[eventBlockNumber][poolAddress] = {
+                        poolIndex,
                         name: "U2 " + token0.symbol + "/" + token1.symbol,
                         coin: context.address,
                         token0,
@@ -1816,11 +1829,21 @@
                 console.log(e);
               }
             }
-            await this.syncBlockTimestamps(context, Object.keys(newBlocks));
+            Vue.set(this, "addressToIndex", tempAddressToIndex);
+            Vue.set(this, "indexToAddress", tempIndexToAddress);
+            await context.db.cache.put({ objectName: "indexToAddress", object: tempIndexToAddress }).then (function() {
+            }).catch(function(error) {
+              console.log("error: " + error);
+            });
+            await context.db.cache.put({ objectName: "addressToIndex", object: tempAddressToIndex }).then (function() {
+            }).catch(function(error) {
+              console.log("error: " + error);
+            });
             await context.db.cache.put({ objectName: context.address + '_uniswapv2pools', object: pools }).then (function() {
             }).catch(function(error) {
               console.log("error: " + error);
             });
+            await this.syncBlockTimestamps(context, Object.keys(newBlocks));
           },
           async syncUniswapV3Pools(context) {
             this.sync.completed = 0;
@@ -1839,6 +1862,8 @@
               [ '0x783cca1c0412dd0d695e784568c96da2e9c22ff989357a2e8b1d9b2b4e6b7118', coinAddressAs32Bytes, null ],
             ];
             const newBlocks = {};
+            const tempAddressToIndex = this.addressToIndex;
+            const tempIndexToAddress = this.indexToAddress;
             for (const [topicsIndex, topics] of topicsList.entries()) {
               let done = false;
               let fromBlock = startBlock;
@@ -1857,8 +1882,18 @@
                     }
                     const poolAddress = ethers.utils.getAddress('0x' + event.data.substring(90, 130));
                     if (!(poolAddress in pools[eventBlockNumber])) {
-                      const token0 = await this.getERC20TokenDetails(context, ethers.utils.getAddress('0x' + event.topics[1].substring(26)));
-                      const token1 = await this.getERC20TokenDetails(context, ethers.utils.getAddress('0x' + event.topics[2].substring(26)));
+                      const token0Address = ethers.utils.getAddress('0x' + event.topics[1].substring(26));
+                      const token1Address = ethers.utils.getAddress('0x' + event.topics[2].substring(26));
+                      for (const address of [poolAddress, token0Address, token1Address]) {
+                        if (!(address in tempAddressToIndex)) {
+                          const index = tempIndexToAddress.length;
+                          tempAddressToIndex[address] = index;
+                          tempIndexToAddress.push(address);
+                        }
+                      }
+                      const poolIndex = tempAddressToIndex[poolAddress];
+                      const token0 = await this.getERC20TokenDetails(context, token0Address);
+                      const token1 = await this.getERC20TokenDetails(context, token1Address);
                       pools[eventBlockNumber][poolAddress] = {
                         name: "U3 " + token0.symbol + "/" + token1.symbol + " " + ethers.utils.formatUnits(event.topics[3], 4) + "%",
                         coin: context.address,
@@ -1883,11 +1918,21 @@
                 console.log(e);
               }
             }
-            await this.syncBlockTimestamps(context, Object.keys(newBlocks));
+            Vue.set(this, "addressToIndex", tempAddressToIndex);
+            Vue.set(this, "indexToAddress", tempIndexToAddress);
+            await context.db.cache.put({ objectName: "indexToAddress", object: tempIndexToAddress }).then (function() {
+            }).catch(function(error) {
+              console.log("error: " + error);
+            });
+            await context.db.cache.put({ objectName: "addressToIndex", object: tempAddressToIndex }).then (function() {
+            }).catch(function(error) {
+              console.log("error: " + error);
+            });
             await context.db.cache.put({ objectName: context.address + '_uniswapv3pools', object: pools }).then (function() {
             }).catch(function(error) {
               console.log("error: " + error);
             });
+            await this.syncBlockTimestamps(context, Object.keys(newBlocks));
           },
           async syncUniswapV2Trades(context) {
             this.sync.completed = 0;
@@ -2392,13 +2437,13 @@
 
             // [
             //   "0xa3f23edc79ae0aa3052a0b5a5fb81f9e13729adb338592d970ffe4a8f5ee3766",
-            //   "17149228",
-            //   "1682740691",
-            //   "57",
+            //   17149228,
+            //   1682740691,
+            //   57,
             //   [
             //     [
-            //       "134",
-            //       "tx",
+            //       134,
+            //       1,
             //       2,
             //       3,
             //       "69000000000000000000000000000",
@@ -2407,7 +2452,8 @@
             //   ]
             // ]
             // [txHash, blockNumber, timestamp, txIndex, [[logIndex, type, fromIndex, toIndex, amount0, token0Index]]]
-            // [txHash, blockNumber, timestamp, txIndex, [[logIndex, type, fromIndex, toIndex, amount0, token0Index]]]
+
+            // [txHash, blockNumber, timestamp, txIndex, [[logIndex, type, fromIndex, toIndex, amount0, token0Index, amount1, token1Index, pairIndex]]]
 
             const db = new Dexie(this.db.name);
             db.version(this.db.version).stores(this.db.schemaDefinition);
@@ -2429,7 +2475,7 @@
                 }
 
                 const uniswapV2PoolsDataObject = await db.cache.where("objectName").equals(coinAddress + "_uniswapv2pools").toArray();
-                if (uniswapV2PoolsDataObject.length == 1 && false) {
+                if (uniswapV2PoolsDataObject.length == 1) {
                   for (const [blockNumber, poolsInfo] of Object.entries(uniswapV2PoolsDataObject[0].object)) {
                     for (const [poolAddress, poolInfo] of Object.entries(poolsInfo)) {
                       const poolIndex = this.addressToIndex[poolAddress];
@@ -2454,11 +2500,12 @@
                             if (!trades[txHash]) {
                               const timestamp = this.blockTimestamps[blockNumber] || null;
                               // trades[txHash] = { blockNumber, timestamp, txIndex, dexTrade: true, logs: [] };
-                              trades[txHash] = [ blockNumber, timestamp, txIndex, true, [] ];
+                              trades[txHash] = [ parseInt(blockNumber), timestamp, parseInt(txIndex), true, [] ];
                             }
                             for (const [logIndex, txData] of Object.entries(logIndexes)) {
+                              console.log("txData: " + JSON.stringify(txData));
                               // trades[txHash].logs.push([ logIndex, ...txData, poolIndex ]);
-                              trades[txHash][4].push([ logIndex, "tx", ...txData, tokenIndex ]);
+                              trades[txHash][4].push([ logIndex, 2, ...txData, tokenIndex ]);
                             }
                           }
                         }
@@ -2538,21 +2585,18 @@
                 }
 
                 const transfersDataObject = await db.cache.where("objectName").equals(coinAddress + "_transfers").toArray();
-                if (transfersDataObject.length == 1) {
+                if (transfersDataObject.length == 1 && false) {
                   console.log("transfersDataObject[0].object: " + JSON.stringify(transfersDataObject[0].object, null, 2));
                   for (const [blockNumber, txIndexes] of Object.entries(transfersDataObject[0].object)) {
                     for (const [txIndex, txHashes] of Object.entries(txIndexes)) {
                       for (const [txHash, logIndexes] of Object.entries(txHashes)) {
                         if (!trades[txHash]) {
                           const timestamp = this.blockTimestamps[blockNumber] || null;
-                          // trades[txHash] = { blockNumber, timestamp, txIndex, dexTrade: false, logs: [] };
-                          trades[txHash] = [ blockNumber, timestamp, txIndex, false, [] ];
+                          trades[txHash] = [ parseInt(blockNumber), timestamp, parseInt(txIndex), false, [] ];
                         }
-                        // if (!trades[txHash].dexTrade) {
                         if (!trades[txHash][3]) {
                           for (const [logIndex, txData] of Object.entries(logIndexes)) {
-                            // trades[txHash].logs.push([ logIndex, "tx", ...txData, tokenIndex ]);
-                            trades[txHash][4].push([ logIndex, "tx", ...txData, tokenIndex ]);
+                            trades[txHash][4].push([ parseInt(logIndex), 1, ...txData, tokenIndex ]);
                           }
                         }
                       }
@@ -2566,7 +2610,7 @@
             console.log(moment().format("HH:mm:ss") + " loadCurrentData END");
             // console.log(moment().format("HH:mm:ss") + " loadCurrentData - indexToSymbols: " + JSON.stringify(indexToSymbols));
             // console.log(moment().format("HH:mm:ss") + " loadCurrentData - indexToDecimals: " + JSON.stringify(indexToDecimals));
-            // console.log(moment().format("HH:mm:ss") + " loadCurrentData - trades: " + JSON.stringify(trades, null, 2));
+            console.log(moment().format("HH:mm:ss") + " loadCurrentData - trades: " + JSON.stringify(trades, null, 2));
             // console.log("Loaded " + count + " events");
             // console.log("Loaded " + Object.keys(pools).length + " Uniswap V2 & V3 pools");
             // console.log("loadCurrentData - pools: " + JSON.stringify(pools, null, 2));
