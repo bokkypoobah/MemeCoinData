@@ -2156,7 +2156,7 @@
                         }
                         const senderIndex = tempAddressToIndex[sender];
                         const ownerIndex = tempAddressToIndex[owner];
-                        // TODO record = [ UNISWAPV3MINT, senderIndex, poolIndex, ethers.BigNumber.from(amount0).mul(-1).toString(), ethers.BigNumber.from(amount1).mul(-1).toString(), "u3", ownerIndex, amount.toString() ];
+                        record = [ UNISWAPV3MINT, senderIndex, poolIndex, ethers.BigNumber.from(amount0).mul(-1).toString(), ethers.BigNumber.from(amount1).mul(-1).toString(), "u3", ownerIndex, amount.toString() ];
 
                       } else if (log.name == "Swap") {
                         const [sender, recipient, amount0, amount1, sqrtPriceX96, liquidity, tick] = log.args;
@@ -2169,18 +2169,7 @@
                         }
                         const senderIndex = tempAddressToIndex[sender];
                         const recipientIndex = tempAddressToIndex[recipient];
-                        // record = {
-                        //   source: "u3",
-                        //   type: "Swap",
-                        //   senderIndex,
-                        //   recipientIndex,
-                        //   amount0: amount0.toString(),
-                        //   amount1: amount1.toString(),
-                        //   sqrtPriceX96: sqrtPriceX96.toString(),
-                        //   liquidity: liquidity.toString(),
-                        //   tick: tick.toString(),
-                        // };
-                        // TODO record = [ UNISWAPV3SWAP, senderIndex, poolIndex, ethers.BigNumber.from(amount0).mul(-1).toString(), ethers.BigNumber.from(amount1).mul(-1).toString() ];
+                        record = [ UNISWAPV3SWAP, senderIndex, poolIndex, ethers.BigNumber.from(amount0).mul(-1).toString(), ethers.BigNumber.from(amount1).mul(-1).toString() ];
 
                       } else if (log.name == "Burn") {
                         // event Burn(address indexed owner, int24 indexed tickLower, int24 indexed tickUpper, uint128 amount, uint256 amount0, uint256 amount1);
@@ -2191,17 +2180,7 @@
                           tempIndexToAddress.push(owner);
                         }
                         const ownerIndex = tempAddressToIndex[owner];
-                        // record = {
-                        //   source: "u3",
-                        //   type: "Burn",
-                        //   ownerIndex,
-                        //   tickLower: tickLower.toString(),
-                        //   tickUpper: tickUpper.toString(),
-                        //   amount: amount.toString(),
-                        //   amount0: amount0.toString(),
-                        //   amount1: amount1.toString(),
-                        // };
-                        // TODO record = [ UNISWAPV3BURN, ownerIndex, poolIndex, amount0.toString(), amount1.toString(), amount.toString() ];
+                        record = [ UNISWAPV3BURN, ownerIndex, poolIndex, amount0.toString(), amount1.toString(), amount.toString() ];
 
                       } else if (log.name == "Collect") {
                         // event Collect(address indexed owner, address recipient, int24 indexed tickLower, int24 indexed tickUpper, uint128 amount0, uint128 amount1);
@@ -2215,16 +2194,6 @@
                         }
                         const ownerIndex = tempAddressToIndex[owner];
                         const recipientIndex = tempAddressToIndex[recipient];
-                        // record = {
-                        //   source: "u3",
-                        //   type: "Collect",
-                        //   ownerIndex,
-                        //   recipientIndex,
-                        //   tickLower: tickLower.toString(),
-                        //   tickUpper: tickUpper.toString(),
-                        //   amount0: amount0.toString(),
-                        //   amount1: amount1.toString(),
-                        // };
                         record = [ UNISWAPV3COLLECT, ownerIndex, poolIndex, amount0.toString(), amount1.toString() ];
                       }
                       if (record) {
