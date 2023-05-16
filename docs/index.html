@@ -2453,7 +2453,7 @@
                         blockNumber,
                         type: "UniswapV2Pool"
                       };
-                      Vue.set(this.indexToName, poolAddress, poolInfo.name);
+                      Vue.set(this.indexToName, poolIndex, poolInfo.name);
                       for (const [blockNumber, txIndexes] of Object.entries(tradesData)) {
                         for (const [txIndex, txHashes] of Object.entries(txIndexes)) {
                           for (const [txHash, logIndexes] of Object.entries(txHashes)) {
@@ -2521,7 +2521,7 @@
                         blockNumber,
                         type: "UniswapV3Pool",
                       };
-                      Vue.set(this.indexToName, poolAddress, poolInfo.name);
+                      Vue.set(this.indexToName, poolIndex, poolInfo.name);
                       for (const [blockNumber, txIndexes] of Object.entries(tradesData)) {
                         for (const [txIndex, txHashes] of Object.entries(txIndexes)) {
                           for (const [txHash, logIndexes] of Object.entries(txHashes)) {
