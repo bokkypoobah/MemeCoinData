@@ -1467,12 +1467,12 @@
             for (const [address, coinInfo] of Object.entries(this.settings.coins)) {
               if (coinInfo.sync && !this.sync.halt) {
                 const context = { provider, confirmedBlockNumber, db, address, symbol: coinInfo.symbol };
-                // await this.syncCoinTransfers(context);
-                // await this.syncUniswapV2Pools(context);
+                await this.syncCoinTransfers(context);
+                await this.syncUniswapV2Pools(context);
                 await this.syncUniswapV3Pools(context);
-                // await this.syncUniswapV2Trades(context);
+                await this.syncUniswapV2Trades(context);
                 await this.syncUniswapV3Trades(context);
-                // await this.syncUniswapAltTokenTransfers(context);
+                await this.syncUniswapAltTokenTransfers(context);
                 // // await this.syncAllENSNames(context);
                 // // await this.testSyncENSNames(context);
               }
@@ -2508,6 +2508,7 @@
                       const tradesDataObject = await db.cache.where("objectName").equals(poolAddress + '_uniswapv3trades').toArray();
                       const tradesData = tradesDataObject.length == 1 ? tradesDataObject[0].object : {};
                       pools[poolAddress] = {
+                        poolIndex,
                         name: poolInfo.name,
                         coin: poolInfo.coin,
                         token0: poolInfo.token0,
@@ -2535,21 +2536,24 @@
                           }
                         }
                       }
-                      // const altTokenIndex = this.addressToIndex[altToken.address];
-                      // const altTradesDataObject = await db.cache.where("objectName").equals(poolAddress + "_" + altToken.address + "_transfers").toArray();
-                      // const altTradesData = altTradesDataObject.length == 1 ? altTradesDataObject[0].object : {};
-                      // for (const [blockNumber, txIndexes] of Object.entries(altTradesData)) {
-                      //   for (const [txIndex, txHashes] of Object.entries(txIndexes)) {
-                      //     for (const [txHash, logIndexes] of Object.entries(txHashes)) {
-                      //       if (!trades[txHash]) {
-                      //         trades[txHash] = { blockNumber, txIndex, logs: [] };
-                      //       }
-                      //       for (const [logIndex, txData] of Object.entries(logIndexes)) {
-                      //         trades[txHash].logs.push([ logIndex, "alttx", ...txData, altTokenIndex ]);
-                      //       }
-                      //     }
-                      //   }
-                      // }
+                      const altTokenIndex = this.addressToIndex[altToken.address];
+                      const altTradesDataObject = await db.cache.where("objectName").equals(poolAddress + "_" + altToken.address + "_transfers").toArray();
+                      const altTradesData = altTradesDataObject.length == 1 ? altTradesDataObject[0].object : {};
+                      for (const [blockNumber, txIndexes] of Object.entries(altTradesData)) {
+                        for (const [txIndex, txHashes] of Object.entries(txIndexes)) {
+                          for (const [txHash, logIndexes] of Object.entries(txHashes)) {
+                            // if (!trades[txHash]) {
+                            //   trades[txHash] = { blockNumber, txIndex, logs: [] };
+                            // }
+                            if (trades[txHash]) {
+                              for (const [logIndex, txData] of Object.entries(logIndexes)) {
+                                // trades[txHash].logs.push([ logIndex, "alttx", ...txData, altTokenIndex ]);
+                                trades[txHash][4].push([ parseInt(logIndex), TRANSFER, ...txData, altTokenIndex ]);
+                              }
+                            }
+                          }
+                        }
+                      }
                     }
                   }
                 }
