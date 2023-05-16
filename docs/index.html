@@ -2430,7 +2430,7 @@
                 if (uniswapV2PoolsDataObject.length == 1) {
                   for (const [blockNumber, poolsInfo] of Object.entries(uniswapV2PoolsDataObject[0].object)) {
                     for (const [poolAddress, poolInfo] of Object.entries(poolsInfo)) {
-                      console.log("poolInfo: " + JSON.stringify(poolInfo, null, 2));
+                      // console.log("poolInfo: " + JSON.stringify(poolInfo, null, 2));
                       const poolIndex = this.addressToIndex[poolAddress];
                       const altToken = poolInfo.token0.address == coinAddress ? poolInfo.token1 : poolInfo.token0;
                       if (!(altToken.addressIndex in indexToSymbols)) {
@@ -2463,7 +2463,7 @@
                               trades[txHash] = [ parseInt(blockNumber), timestamp, parseInt(txIndex), true, [] ];
                             }
                             for (const [logIndex, txData] of Object.entries(logIndexes)) {
-                              console.log("txData: " + JSON.stringify(txData));
+                              // console.log("txData: " + JSON.stringify(txData));
                               // trades[txHash].logs.push([ logIndex, ...txData, poolIndex ]);
                               trades[txHash][4].push([ parseInt(logIndex), txData[0], txData[1], txData[2], txData[3], poolInfo.token0.addressIndex, txData[4], poolInfo.token1.addressIndex, poolIndex ]); // , poolInfo.token0.addressIndex, txData[4], poolInfo.token1.addressIndex, pooIndex ]);
                             }
@@ -2496,7 +2496,7 @@
                 if (uniswapV3PoolsDataObject.length == 1) {
                   for (const [blockNumber, poolsInfo] of Object.entries(uniswapV3PoolsDataObject[0].object)) {
                     for (const [poolAddress, poolInfo] of Object.entries(poolsInfo)) {
-                      console.log("poolInfo: " + JSON.stringify(poolInfo, null, 2));
+                      // console.log("poolInfo: " + JSON.stringify(poolInfo, null, 2));
                       const poolIndex = this.addressToIndex[poolAddress];
                       const altToken = poolInfo.token0.address == coinAddress ? poolInfo.token1 : poolInfo.token0;
                       if (!(altToken.addressIndex in indexToSymbols)) {
@@ -2560,7 +2560,7 @@
 
                 const transfersDataObject = await db.cache.where("objectName").equals(coinAddress + "_transfers").toArray();
                 if (transfersDataObject.length == 1) {
-                  console.log("transfersDataObject[0].object: " + JSON.stringify(transfersDataObject[0].object, null, 2));
+                  // console.log("transfersDataObject[0].object: " + JSON.stringify(transfersDataObject[0].object, null, 2));
                   for (const [blockNumber, txIndexes] of Object.entries(transfersDataObject[0].object)) {
                     for (const [txIndex, txHashes] of Object.entries(txIndexes)) {
                       for (const [txHash, logIndexes] of Object.entries(txHashes)) {
@@ -2584,7 +2584,7 @@
             console.log(moment().format("HH:mm:ss") + " loadCurrentData END");
             // console.log(moment().format("HH:mm:ss") + " loadCurrentData - indexToSymbols: " + JSON.stringify(indexToSymbols));
             // console.log(moment().format("HH:mm:ss") + " loadCurrentData - indexToDecimals: " + JSON.stringify(indexToDecimals));
-            console.log(moment().format("HH:mm:ss") + " loadCurrentData - trades: " + JSON.stringify(trades, null, 2));
+            // console.log(moment().format("HH:mm:ss") + " loadCurrentData - trades: " + JSON.stringify(trades, null, 2));
             // console.log("Loaded " + count + " events");
             // console.log("Loaded " + Object.keys(pools).length + " Uniswap V2 & V3 pools");
             // console.log("loadCurrentData - pools: " + JSON.stringify(pools, null, 2));
